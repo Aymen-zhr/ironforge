@@ -1,5 +1,4 @@
 ---
-name: graphify
 description: Turn any folder of files into a navigable knowledge graph
 ---
 
