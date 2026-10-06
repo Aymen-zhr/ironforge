@@ -1,150 +1,175 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "project": "IronForge",
-  "description": "Domain ontology and architectural knowledge graph mapping IronForge AI fitness systems.",
+  "description": "Domain ontology and architectural knowledge graph mapping IronForge AI fitness systems and Supabase database schema.",
   "nodes": [
     {
-      "id": "User",
-      "label": "User",
-      "type": "Entity",
-      "description": "Primary athlete / client profile containing biometric baseline, subscription status, and historical progress.",
+      "id": "Profile",
+      "table": "profiles",
+      "label": "Profile (User)",
+      "type": "DatabaseEntity",
+      "description": "Primary athlete profile linked 1-to-1 with Supabase auth.users.",
       "properties": {
-        "id": "string",
-        "email": "string",
-        "experienceLevel": "beginner | intermediate | advanced | elite",
-        "createdAt": "timestamp"
+        "id": "UUID (PK, FK auth.users)",
+        "email": "TEXT",
+        "username": "TEXT (UNIQUE)",
+        "weight_kg": "NUMERIC(5,2)",
+        "height_cm": "NUMERIC(5,2)",
+        "training_goal": "TEXT",
+        "created_at": "TIMESTAMPTZ"
       }
     },
     {
       "id": "BodyScan",
+      "table": "body_scans",
       "label": "BodyScan",
-      "type": "Entity",
-      "description": "Computer vision and depth analysis captures of physique, posture, and muscular symmetry.",
+      "type": "DatabaseEntity",
+      "description": "Physique telemetry and computer vision scans tracking muscular symmetry and body composition.",
       "properties": {
-        "id": "string",
-        "userId": "string",
-        "scanDate": "timestamp",
-        "frontImageUrl": "string",
-        "sideImageUrl": "string",
-        "backImageUrl": "string",
-        "bodyFatPercentage": "number"
+        "id": "UUID (PK)",
+        "user_id": "UUID (FK profiles.id)",
+        "front_image_url": "TEXT",
+        "side_image_url": "TEXT",
+        "analyzed_at": "TIMESTAMPTZ",
+        "overall_symmetry_score": "NUMERIC(5,2)"
       }
     },
     {
       "id": "MuscleRankings",
+      "table": "muscle_rankings",
       "label": "MuscleRankings",
-      "type": "Entity",
-      "description": "Tiered muscle development hierarchy (S, A, B, C) identifying lagging groups and hypertrophy priorities.",
+      "type": "DatabaseEntity",
+      "description": "Granular muscle tier evaluations (S, A, B, C) per muscle group generated from a body scan.",
       "properties": {
-        "id": "string",
-        "scanId": "string",
-        "chestTier": "S | A | B | C",
-        "backTier": "S | A | B | C",
-        "shouldersTier": "S | A | B | C",
-        "legsTier": "S | A | B | C",
-        "armsTier": "S | A | B | C",
-        "coreTier": "S | A | B | C",
-        "laggingMuscles": "string[]"
+        "id": "UUID (PK)",
+        "scan_id": "UUID (FK body_scans.id)",
+        "muscle_group": "ENUM ('Delts', 'Chest', 'Lats', 'Quads', 'Hamstrings', 'Arms', 'Calves', 'Abs')",
+        "rank": "ENUM ('S', 'A', 'B', 'C')",
+        "notes": "TEXT",
+        "created_at": "TIMESTAMPTZ"
       }
     },
     {
-      "id": "WorkoutPlan",
-      "label": "WorkoutPlan",
-      "type": "Entity",
-      "description": "Hypertrophy training split and exercise schedule algorithmically tailored to lagging muscle rankings.",
+      "id": "WorkoutRoutine",
+      "table": "workout_routines",
+      "label": "WorkoutRoutine",
+      "type": "DatabaseEntity",
+      "description": "Hypertrophy training splits and periodized exercise schedules prioritized by lagging muscle tiers.",
       "properties": {
-        "id": "string",
-        "userId": "string",
-        "splitType": "PPL | UpperLower | Arnold | Custom",
-        "frequencyPerWeek": "number",
-        "targetFocus": "string[]",
-        "exercises": "ExerciseRoutine[]"
+        "id": "UUID (PK)",
+        "user_id": "UUID (FK profiles.id)",
+        "split_name": "TEXT",
+        "target_weak_points": "TEXT[]",
+        "schedule_json": "JSONB",
+        "is_active": "BOOLEAN",
+        "created_at": "TIMESTAMPTZ"
       }
     },
     {
       "id": "FridgeScan",
       "label": "FridgeScan",
-      "type": "Entity",
-      "description": "Visual snapshot analysis of refrigerator / pantry inventory via multimodal vision models.",
+      "type": "AIModelEntity",
+      "description": "Multimodal computer vision scan of refrigerator or pantry inventory.",
       "properties": {
         "id": "string",
-        "userId": "string",
-        "scannedAt": "timestamp",
-        "imageUrl": "string"
+        "user_id": "UUID",
+        "scanned_at": "TIMESTAMPTZ",
+        "image_url": "TEXT"
       }
     },
     {
-      "id": "Ingredients",
-      "label": "Ingredients",
-      "type": "Entity",
-      "description": "Detected food items, proteins, carbs, and fats parsed with confidence scores and quantities.",
+      "id": "FridgeIngredient",
+      "table": "fridge_ingredients",
+      "label": "FridgeIngredient",
+      "type": "DatabaseEntity",
+      "description": "Raw food items and nutritional supplies parsed by computer vision or entered manually.",
       "properties": {
-        "items": "Array<{ name: string, category: string, estimatedQuantity: string, confidence: number }>"
+        "id": "UUID (PK)",
+        "user_id": "UUID (FK profiles.id)",
+        "name": "TEXT",
+        "detected_quantity": "TEXT",
+        "category": "TEXT",
+        "expires_at": "TIMESTAMPTZ",
+        "created_at": "TIMESTAMPTZ"
       }
     },
     {
       "id": "TargetMacros",
       "label": "TargetMacros",
-      "type": "Entity",
-      "description": "Daily macronutrient distribution goals calculated from athlete metabolism and physique objectives.",
+      "type": "DomainEntity",
+      "description": "Dynamic daily macronutrient quotas calculated from athlete biometrics and training goals.",
       "properties": {
-        "proteinGrams": "number",
-        "carbsGrams": "number",
-        "fatsGrams": "number",
-        "targetCalories": "number"
+        "protein_grams": "number",
+        "carbs_grams": "number",
+        "fats_grams": "number",
+        "target_calories": "number"
       }
     },
     {
       "id": "SmartRecipes",
       "label": "SmartRecipes",
-      "type": "Entity",
-      "description": "Dynamically assembled high-protein culinary recipes matching detected ingredients to macro targets.",
+      "type": "DomainEntity",
+      "description": "AI-synthesized high-protein culinary recipes matching detected ingredients to macro goals.",
       "properties": {
-        "id": "string",
         "title": "string",
-        "cookTimeMinutes": "number",
+        "cook_time_minutes": "number",
         "macros": "{ protein: number, carbs: number, fats: number, calories: number }",
-        "ingredientsRequired": "string[]",
-        "instructions": "string[]"
+        "ingredients": "string[]"
       }
     }
   ],
   "edges": [
     {
-      "source": "User",
+      "source": "Profile",
       "target": "BodyScan",
       "relation": "HAS_MANY",
-      "description": "A user conducts multiple periodic body scans to track muscular transformation over time."
+      "foreign_key": "body_scans.user_id -> profiles.id",
+      "description": "A user profile possesses multiple periodic body scan telemetry records."
     },
     {
       "source": "BodyScan",
       "target": "MuscleRankings",
       "relation": "GENERATES",
-      "description": "Deep vision analysis of body scans produces granular muscle tier ratings from S to C."
+      "foreign_key": "muscle_rankings.scan_id -> body_scans.id",
+      "description": "Computer vision analysis of a body scan produces muscle ranking tiers."
     },
     {
       "source": "MuscleRankings",
-      "target": "WorkoutPlan",
+      "target": "WorkoutRoutine",
       "relation": "PRIORITIZES",
-      "description": "Muscle rankings dictate training volume distribution, prioritizing lagging muscle groups."
+      "description": "Lagging muscle rankings dictate the volume and exercise selection in workout routines."
+    },
+    {
+      "source": "Profile",
+      "target": "WorkoutRoutine",
+      "relation": "HAS_MANY",
+      "foreign_key": "workout_routines.user_id -> profiles.id",
+      "description": "A user configures and manages multiple active/historical workout routines."
     },
     {
       "source": "FridgeScan",
-      "target": "Ingredients",
+      "target": "FridgeIngredient",
       "relation": "DETECTS",
-      "description": "Multimodal vision scans identify available raw ingredients and nutritional pantry inventory."
+      "description": "Multimodal vision scans parse inventory into fridge ingredient rows."
     },
     {
-      "source": "Ingredients",
+      "source": "Profile",
+      "target": "FridgeIngredient",
+      "relation": "HAS_MANY",
+      "foreign_key": "fridge_ingredients.user_id -> profiles.id",
+      "description": "A user maintains a live inventory of available food ingredients."
+    },
+    {
+      "source": "FridgeIngredient",
       "target": "SmartRecipes",
       "relation": "ASSEMBLES",
-      "description": "Detected ingredients are synthesized into executable meal recipes."
+      "description": "Available fridge ingredients provide the building blocks for smart recipes."
     },
     {
       "source": "TargetMacros",
       "target": "SmartRecipes",
       "relation": "ASSEMBLES",
-      "description": "Target macronutrient constraints constrain recipe generation to satisfy daily nutritional quotas."
+      "description": "Daily target macros serve as optimization constraints when assembling recipes."
     }
   ]
 }

@@ -31,7 +31,9 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.*
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +41,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Graphify artifacts
+graphify-out/
+
+# logs
+*.log
+
