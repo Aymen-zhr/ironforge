@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Pressable, ViewStyle, StyleProp } from 'react-native';
+import { View, ViewStyle, StyleProp } from 'react-native';
+import SmoothPressable from './SmoothPressable';
 
 export interface GlassCardProps {
   children: React.ReactNode;
   className?: string;
-  variant?: 'default' | 'elevated' | 'glow' | 'cyan-glow';
+  variant?: 'default' | 'elevated' | 'glow' | 'blood-glow' | 'cyan-glow' | 'bento' | 'highlighted';
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }
@@ -18,29 +19,32 @@ export const GlassCard: React.FC<GlassCardProps> = ({
 }) => {
   const getVariantClasses = () => {
     switch (variant) {
-      case 'elevated':
-        return 'bg-surface-card border-border-dark shadow-md';
+      case 'blood-glow':
       case 'glow':
-        return 'bg-surface border-accent/40 shadow-sm shadow-accent/20';
+      case 'highlighted':
+        return 'bg-[#0D0D11]/90 border-red-600/30 shadow-lg shadow-red-600/10 rounded-xl p-4';
       case 'cyan-glow':
-        return 'bg-surface border-neon-cyan/40 shadow-sm shadow-neon-cyan/20';
+        return 'bg-[#0D0D11]/90 border-cyan-500/30 shadow-lg shadow-cyan-500/10 rounded-xl p-4';
+      case 'bento':
+        return 'bg-[#0D0D11]/90 border-white/[0.07] rounded-xl p-5';
+      case 'elevated':
       case 'default':
       default:
-        return 'bg-surface border-border-dark';
+        return 'bg-[#0D0D11]/90 border-white/[0.07] rounded-xl p-4';
     }
   };
 
-  const baseClasses = `rounded-2xl border p-4 ${getVariantClasses()} ${className}`;
+  const baseClasses = `border ${getVariantClasses()} ${className}`;
 
   if (onPress) {
     return (
-      <Pressable
+      <SmoothPressable
         onPress={onPress}
-        className={`${baseClasses} active:opacity-85 active:scale-[0.99]`}
+        className={baseClasses}
         style={style}
       >
         {children}
-      </Pressable>
+      </SmoothPressable>
     );
   }
 

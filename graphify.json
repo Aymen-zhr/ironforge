@@ -1,8 +1,113 @@
 {
-  "version": "2.0.0",
+  "version": "4.0.0",
   "project": "IronForge",
-  "description": "Domain ontology and architectural knowledge graph mapping IronForge AI fitness systems and Supabase database schema.",
+  "description": "Domain ontology and architectural knowledge graph mapping IronForge 2.0 AI fitness systems, Expo Router 4-tab architecture, services, and Supabase database schema.",
   "nodes": [
+    {
+      "id": "app/(tabs)/_layout.tsx",
+      "label": "TabLayout",
+      "type": "NavigationLayout",
+      "description": "Expo Router 4-tab bar layout (Command Deck, Smart Pantry, Hypertrophy Forge, Macro Console) with 64px height, Liquid Obsidian & Blood Ember styling, and tactile active tints.",
+      "path": "app/(tabs)/_layout.tsx"
+    },
+    {
+      "id": "app/(tabs)/index.tsx",
+      "label": "CommandDeckScreen",
+      "type": "ScreenComponent",
+      "description": "Central Command Deck displaying real-time system pulse, Hero training card with Launch Session, daily macro status bar, quick visual portals, and Open-Meteo weather telemetry.",
+      "path": "app/(tabs)/index.tsx"
+    },
+    {
+      "id": "app/(tabs)/fridge.tsx",
+      "label": "SmartPantryScreen",
+      "type": "ScreenComponent",
+      "description": "Smart Pantry Vision screen with camera/gallery picker, expo-image-manipulator compression, Gemini 3.8 Flash analysis, detected ingredient tags, 3 gym-focused recipes, and Log to Diet syncing.",
+      "path": "app/(tabs)/fridge.tsx"
+    },
+    {
+      "id": "app/(tabs)/workout.tsx",
+      "label": "HypertrophyForgeScreen",
+      "type": "ScreenComponent",
+      "description": "Hypertrophy Forge screen with split selection pills (Push, Pull, Legs, Upper, Lower), equipment toggles, Free Exercise DB generator, 16:9 thumbnail previews, RPE, and haptic set completion checkboxes.",
+      "path": "app/(tabs)/workout.tsx"
+    },
+    {
+      "id": "app/(tabs)/diet.tsx",
+      "label": "MacroConsoleScreen",
+      "type": "ScreenComponent",
+      "description": "Macro Fuel Console with circular calorie progress ring, Protein/Carbs/Fats horizontal progress bars, today's logged meals timeline synced from pantry, and quick-add modal.",
+      "path": "app/(tabs)/diet.tsx"
+    },
+    {
+      "id": "services/navigationService.ts",
+      "label": "navigationService",
+      "type": "UtilityService",
+      "description": "Universal navigation bus and subscriber bridge linking interactive buttons and Command Deck portals directly to active tabs with tactile haptic dispatch.",
+      "path": "services/navigationService.ts"
+    },
+    {
+      "id": "services/dietService.ts",
+      "label": "dietService",
+      "type": "NutritionService",
+      "description": "Calculates daily energy budgets and protein quotas, manages local & Supabase meal persistence, and searches Open Food Facts.",
+      "path": "services/dietService.ts"
+    },
+    {
+      "id": "services/fridgeVision.ts",
+      "label": "fridgeVision",
+      "type": "AIService",
+      "description": "Multimodal computer vision pipeline analyzing food images via Gemini Flash and enriching nutritional data using the Open Food Facts public API.",
+      "path": "services/fridgeVision.ts"
+    },
+    {
+      "id": "data/exerciseCatalog.ts",
+      "label": "exerciseCatalog",
+      "type": "DataEntity",
+      "description": "Normalized Free Exercise DB catalog containing 876 exercises mapped with compound/isolation mechanics, equipment filters, and anatomical instructions.",
+      "path": "data/exerciseCatalog.ts"
+    },
+    {
+      "id": "data/workoutCatalog.ts",
+      "label": "workoutCatalog",
+      "type": "DataEntity",
+      "description": "Pre-compiled hypertrophy training directory providing battle-tested training programs (PPL, Upper/Lower, Arnold) with zero network delay and direct looping demonstrations.",
+      "path": "data/workoutCatalog.ts"
+    },
+    {
+      "id": "services/workoutGenerator.ts",
+      "label": "workoutGenerator",
+      "type": "AIService",
+      "description": "Dynamic hypertrophy generation engine integrating Free Exercise DB catalog and algorithmic routine assembly prioritized by user training split and equipment.",
+      "path": "services/workoutGenerator.ts"
+    },
+    {
+      "id": "services/exerciseMediaService.ts",
+      "label": "exerciseMediaService",
+      "type": "MediaService",
+      "description": "Provides silent, looping biomechanical demonstration GIFs, videos, and 16:9 poster preview thumbnails mapped from verified ExerciseDB & Free Exercise DB open CDN assets.",
+      "path": "services/exerciseMediaService.ts"
+    },
+    {
+      "id": "services/videoCacheService.ts",
+      "label": "videoCacheService",
+      "type": "OfflineStorageService",
+      "description": "Manages local device caching, background pre-fetching, and instant offline ready status for exercise looping video demonstrations using expo-file-system.",
+      "path": "services/videoCacheService.ts"
+    },
+    {
+      "id": "services/weatherService.ts",
+      "label": "weatherService",
+      "type": "EnvironmentalService",
+      "description": "Public weather service consuming Open-Meteo Weather API and Geocoding API to provide real-time temperature, humidity, UV index, athletic training advisories, and hydration targets.",
+      "path": "services/weatherService.ts"
+    },
+    {
+      "id": "components/ui/WeatherCard.tsx",
+      "label": "WeatherCard",
+      "type": "UIComponent",
+      "description": "High-end glass telemetry card displaying current climate conditions, Celsius/Fahrenheit toggle, athlete training advisories, 6-hour forecast, and global city search modal.",
+      "path": "components/ui/WeatherCard.tsx"
+    },
     {
       "id": "Profile",
       "table": "profiles",
@@ -20,61 +125,18 @@
       }
     },
     {
-      "id": "BodyScan",
-      "table": "body_scans",
-      "label": "BodyScan",
-      "type": "DatabaseEntity",
-      "description": "Physique telemetry and computer vision scans tracking muscular symmetry and body composition.",
-      "properties": {
-        "id": "UUID (PK)",
-        "user_id": "UUID (FK profiles.id)",
-        "front_image_url": "TEXT",
-        "side_image_url": "TEXT",
-        "analyzed_at": "TIMESTAMPTZ",
-        "overall_symmetry_score": "NUMERIC(5,2)"
-      }
-    },
-    {
-      "id": "MuscleRankings",
-      "table": "muscle_rankings",
-      "label": "MuscleRankings",
-      "type": "DatabaseEntity",
-      "description": "Granular muscle tier evaluations (S, A, B, C) per muscle group generated from a body scan.",
-      "properties": {
-        "id": "UUID (PK)",
-        "scan_id": "UUID (FK body_scans.id)",
-        "muscle_group": "ENUM ('Delts', 'Chest', 'Lats', 'Quads', 'Hamstrings', 'Arms', 'Calves', 'Abs')",
-        "rank": "ENUM ('S', 'A', 'B', 'C')",
-        "notes": "TEXT",
-        "created_at": "TIMESTAMPTZ"
-      }
-    },
-    {
       "id": "WorkoutRoutine",
       "table": "workout_routines",
       "label": "WorkoutRoutine",
       "type": "DatabaseEntity",
-      "description": "Hypertrophy training splits and periodized exercise schedules prioritized by lagging muscle tiers.",
+      "description": "Hypertrophy training splits and periodized exercise schedules generated from Free Exercise DB.",
       "properties": {
         "id": "UUID (PK)",
         "user_id": "UUID (FK profiles.id)",
         "split_name": "TEXT",
-        "target_weak_points": "TEXT[]",
         "schedule_json": "JSONB",
         "is_active": "BOOLEAN",
         "created_at": "TIMESTAMPTZ"
-      }
-    },
-    {
-      "id": "FridgeScan",
-      "label": "FridgeScan",
-      "type": "AIModelEntity",
-      "description": "Multimodal computer vision scan of refrigerator or pantry inventory.",
-      "properties": {
-        "id": "string",
-        "user_id": "UUID",
-        "scanned_at": "TIMESTAMPTZ",
-        "image_url": "TEXT"
       }
     },
     {
@@ -89,20 +151,7 @@
         "name": "TEXT",
         "detected_quantity": "TEXT",
         "category": "TEXT",
-        "expires_at": "TIMESTAMPTZ",
         "created_at": "TIMESTAMPTZ"
-      }
-    },
-    {
-      "id": "TargetMacros",
-      "label": "TargetMacros",
-      "type": "DomainEntity",
-      "description": "Dynamic daily macronutrient quotas calculated from athlete biometrics and training goals.",
-      "properties": {
-        "protein_grams": "number",
-        "carbs_grams": "number",
-        "fats_grams": "number",
-        "target_calories": "number"
       }
     },
     {
@@ -112,32 +161,167 @@
       "description": "AI-synthesized high-protein culinary recipes matching detected ingredients to macro goals.",
       "properties": {
         "title": "string",
-        "cook_time_minutes": "number",
+        "prepTime": "string",
         "macros": "{ protein: number, carbs: number, fats: number, calories: number }",
-        "ingredients": "string[]"
+        "usedIngredients": "string[]"
+      }
+    },
+    {
+      "id": "DietLog",
+      "table": "diet_logs",
+      "label": "Supabase: diet_logs",
+      "type": "DatabaseEntity",
+      "description": "Daily caloric budget, macronutrient progress quotas, and serialized logged meals.",
+      "properties": {
+        "id": "UUID (PK)",
+        "user_id": "UUID (FK profiles.id)",
+        "date": "DATE",
+        "target_calories": "INTEGER",
+        "target_protein": "INTEGER",
+        "target_carbs": "INTEGER",
+        "target_fats": "INTEGER",
+        "consumed_calories": "INTEGER",
+        "consumed_protein": "INTEGER",
+        "consumed_carbs": "INTEGER",
+        "consumed_fats": "INTEGER",
+        "meals_json": "JSONB",
+        "created_at": "TIMESTAMPTZ"
       }
     }
   ],
   "edges": [
     {
-      "source": "Profile",
-      "target": "BodyScan",
-      "relation": "HAS_MANY",
-      "foreign_key": "body_scans.user_id -> profiles.id",
-      "description": "A user profile possesses multiple periodic body scan telemetry records."
+      "source": "app/(tabs)/_layout.tsx",
+      "target": "app/(tabs)/index.tsx",
+      "relation": "HOSTS_TAB",
+      "description": "TabLayout mounts Command Deck as the primary root index tab."
     },
     {
-      "source": "BodyScan",
-      "target": "MuscleRankings",
+      "source": "app/(tabs)/_layout.tsx",
+      "target": "app/(tabs)/fridge.tsx",
+      "relation": "HOSTS_TAB",
+      "description": "TabLayout mounts Smart Pantry Vision as the secondary pantry tab."
+    },
+    {
+      "source": "app/(tabs)/_layout.tsx",
+      "target": "app/(tabs)/workout.tsx",
+      "relation": "HOSTS_TAB",
+      "description": "TabLayout mounts Hypertrophy Forge as the tertiary workout tab."
+    },
+    {
+      "source": "app/(tabs)/_layout.tsx",
+      "target": "app/(tabs)/diet.tsx",
+      "relation": "HOSTS_TAB",
+      "description": "TabLayout mounts Macro Console as the quaternary diet tab."
+    },
+    {
+      "source": "app/(tabs)/index.tsx",
+      "target": "services/navigationService.ts",
+      "relation": "TRIGGERS",
+      "description": "Command Deck hero buttons and visual portal cards trigger tab navigation transitions."
+    },
+    {
+      "source": "app/(tabs)/index.tsx",
+      "target": "services/dietService.ts",
+      "relation": "CALLS",
+      "description": "Command Deck queries today's caloric and protein targets to render the daily macro fuel bar."
+    },
+    {
+      "source": "app/(tabs)/index.tsx",
+      "target": "components/ui/WeatherCard.tsx",
+      "relation": "RENDERS",
+      "description": "Command Deck embeds the WeatherCard for real-time training climate telemetry and Open-Meteo forecasts."
+    },
+    {
+      "source": "components/ui/WeatherCard.tsx",
+      "target": "services/weatherService.ts",
+      "relation": "CALLS",
+      "description": "WeatherCard calls Open-Meteo public API via weatherService for weather telemetry and geocoding."
+    },
+    {
+      "source": "app/(tabs)/fridge.tsx",
+      "target": "services/fridgeVision.ts",
+      "relation": "CALLS",
+      "description": "Smart Pantry Vision invokes analyzeFridgeContents with compressed image URI."
+    },
+    {
+      "source": "services/fridgeVision.ts",
+      "target": "FridgeIngredient",
+      "relation": "DETECTS",
+      "description": "fridgeVision extracts detected food ingredients from refrigerator photos."
+    },
+    {
+      "source": "services/fridgeVision.ts",
+      "target": "SmartRecipes",
       "relation": "GENERATES",
-      "foreign_key": "muscle_rankings.scan_id -> body_scans.id",
-      "description": "Computer vision analysis of a body scan produces muscle ranking tiers."
+      "description": "fridgeVision synthesizes 3 gym-tailored high-protein recipes strictly based on detected ingredients."
     },
     {
-      "source": "MuscleRankings",
+      "source": "app/(tabs)/fridge.tsx",
+      "target": "services/dietService.ts",
+      "relation": "LOGS_TO",
+      "description": "Smart Pantry recipes are logged directly to the shared daily nutrition log via addMealToDailyLog."
+    },
+    {
+      "source": "app/(tabs)/workout.tsx",
+      "target": "services/workoutGenerator.ts",
+      "relation": "CALLS",
+      "description": "Hypertrophy Forge invokes generateTargetedWorkout with user split, equipment, and duration."
+    },
+    {
+      "source": "app/(tabs)/workout.tsx",
+      "target": "data/workoutCatalog.ts",
+      "relation": "CONSUMES_DIRECTORY",
+      "description": "Hypertrophy Forge instantly loads pre-compiled programs and exercises from workoutCatalog with zero network delay."
+    },
+    {
+      "source": "services/workoutGenerator.ts",
+      "target": "data/exerciseCatalog.ts",
+      "relation": "READS",
+      "description": "workoutGenerator filters the 876-exercise Free Exercise DB catalog locally by split and equipment."
+    },
+    {
+      "source": "app/(tabs)/workout.tsx",
       "target": "WorkoutRoutine",
-      "relation": "PRIORITIZES",
-      "description": "Lagging muscle rankings dictate the volume and exercise selection in workout routines."
+      "relation": "PERSISTS",
+      "description": "Hypertrophy Forge persists generated routines and set completion checklist into Supabase workout_routines."
+    },
+    {
+      "source": "app/(tabs)/diet.tsx",
+      "target": "services/dietService.ts",
+      "relation": "CALLS",
+      "description": "Macro Console queries daily targets, consumes logged meals timeline, and adds quick meals."
+    },
+    {
+      "source": "services/dietService.ts",
+      "target": "DietLog",
+      "relation": "WRITES_TO",
+      "description": "dietService persists meal records and macro progress to Supabase diet_logs."
+    },
+    {
+      "source": "Profile",
+      "target": "DietLog",
+      "relation": "HAS_MANY",
+      "foreign_key": "diet_logs.user_id -> profiles.id",
+      "description": "A user profile maintains daily nutrition and macronutrient logs across time."
+    },
+    {
+      "source": "services/workoutGenerator.ts",
+      "target": "services/exerciseMediaService.ts",
+      "relation": "ENRICHES_WITH",
+      "description": "workoutGenerator resolves looping biomechanical demonstration GIFs, videos, and poster thumbnails for every routine exercise."
+    },
+    {
+      "source": "app/(tabs)/workout.tsx",
+      "target": "services/exerciseMediaService.ts",
+      "relation": "DISPLAYS_MEDIA",
+      "description": "Hypertrophy Forge renders silent, auto-looping exercise technique demonstrations with biomechanical form checklists."
+    },
+    {
+      "source": "app/(tabs)/workout.tsx",
+      "target": "services/videoCacheService.ts",
+      "relation": "CACHES_MEDIA",
+      "description": "Hypertrophy Forge resolves local cached video URIs and triggers offline split downloads for gym use via expo-file-system."
     },
     {
       "source": "Profile",
@@ -145,31 +329,6 @@
       "relation": "HAS_MANY",
       "foreign_key": "workout_routines.user_id -> profiles.id",
       "description": "A user configures and manages multiple active/historical workout routines."
-    },
-    {
-      "source": "FridgeScan",
-      "target": "FridgeIngredient",
-      "relation": "DETECTS",
-      "description": "Multimodal vision scans parse inventory into fridge ingredient rows."
-    },
-    {
-      "source": "Profile",
-      "target": "FridgeIngredient",
-      "relation": "HAS_MANY",
-      "foreign_key": "fridge_ingredients.user_id -> profiles.id",
-      "description": "A user maintains a live inventory of available food ingredients."
-    },
-    {
-      "source": "FridgeIngredient",
-      "target": "SmartRecipes",
-      "relation": "ASSEMBLES",
-      "description": "Available fridge ingredients provide the building blocks for smart recipes."
-    },
-    {
-      "source": "TargetMacros",
-      "target": "SmartRecipes",
-      "relation": "ASSEMBLES",
-      "description": "Daily target macros serve as optimization constraints when assembling recipes."
     }
   ]
 }

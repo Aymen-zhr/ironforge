@@ -63,6 +63,38 @@ export interface WorkoutRoutine {
   is_active: boolean;
 }
 
+export type MealType = 'Breakfast' | 'Lunch' | 'Post-Workout' | 'Dinner' | 'Snack';
+
+export interface MealItem {
+  id: string;
+  user_id?: string;
+  log_id?: string;
+  name: string;
+  meal_type: MealType;
+  calories: number;
+  protein_grams: number;
+  carbs_grams: number;
+  fats_grams: number;
+  source?: 'FridgeScan' | 'OpenFoodFacts' | 'Manual';
+  logged_at: string;
+}
+
+export interface DietLog {
+  id: string;
+  user_id: string;
+  date: string;
+  target_calories: number;
+  target_protein: number;
+  target_carbs: number;
+  target_fats: number;
+  consumed_calories: number;
+  consumed_protein: number;
+  consumed_carbs: number;
+  consumed_fats: number;
+  meals_json?: MealItem[];
+  created_at?: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -106,15 +138,7 @@ export interface Database {
           analyzed_at?: string;
           overall_symmetry_score?: number | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: "body_scans_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
       };
       muscle_rankings: {
         Row: MuscleTier;
@@ -132,15 +156,7 @@ export interface Database {
           rank?: TierRank;
           notes?: string | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: "muscle_rankings_scan_id_fkey";
-            columns: ["scan_id"];
-            isOneToOne: false;
-            referencedRelation: "body_scans";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
       };
       fridge_ingredients: {
         Row: FridgeIngredient;
@@ -160,15 +176,7 @@ export interface Database {
           category?: string | null;
           expires_at?: string | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: "fridge_ingredients_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
       };
       workout_routines: {
         Row: WorkoutRoutine;
@@ -188,29 +196,79 @@ export interface Database {
           schedule_json?: Record<string, any> | null;
           is_active?: boolean;
         };
-        Relationships: [
-          {
-            foreignKeyName: "workout_routines_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
+      };
+      diet_logs: {
+        Row: DietLog;
+        Insert: {
+          id?: string;
+          user_id: string;
+          date: string;
+          target_calories: number;
+          target_protein: number;
+          target_carbs: number;
+          target_fats: number;
+          consumed_calories?: number;
+          consumed_protein?: number;
+          consumed_carbs?: number;
+          consumed_fats?: number;
+          meals_json?: Record<string, any>[] | MealItem[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          date?: string;
+          target_calories?: number;
+          target_protein?: number;
+          target_carbs?: number;
+          target_fats?: number;
+          consumed_calories?: number;
+          consumed_protein?: number;
+          consumed_carbs?: number;
+          consumed_fats?: number;
+          meals_json?: Record<string, any>[] | MealItem[];
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      meals: {
+        Row: MealItem;
+        Insert: {
+          id?: string;
+          user_id?: string;
+          log_id?: string;
+          name: string;
+          meal_type: MealType;
+          calories: number;
+          protein_grams: number;
+          carbs_grams: number;
+          fats_grams: number;
+          source?: 'FridgeScan' | 'OpenFoodFacts' | 'Manual';
+          logged_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          log_id?: string;
+          name?: string;
+          meal_type?: MealType;
+          calories?: number;
+          protein_grams?: number;
+          carbs_grams?: number;
+          fats_grams?: number;
+          source?: 'FridgeScan' | 'OpenFoodFacts' | 'Manual';
+          logged_at?: string;
+        };
+        Relationships: [];
       };
     };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Enums: {
-      muscle_group: MuscleGroup;
-      tier_rank: TierRank;
+      muscle_group_type: MuscleGroup;
+      tier_rank_type: TierRank;
     };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
+    CompositeTypes: Record<string, never>;
   };
 }

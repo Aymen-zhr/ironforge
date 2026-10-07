@@ -7,16 +7,12 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 export interface GlowButtonProps {
   title: string;
   onPress?: () => void;
-  variant?: 'emerald' | 'cyan' | 'outline' | 'ghost';
+  variant?: 'blood' | 'emerald' | 'cyan' | 'amber' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
@@ -26,12 +22,10 @@ export interface GlowButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 export const GlowButton: React.FC<GlowButtonProps> = ({
   title,
   onPress,
-  variant = 'emerald',
+  variant = 'blood',
   size = 'md',
   icon,
   iconPosition = 'left',
@@ -40,51 +34,48 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
   className = '',
   style,
 }) => {
-  const scale = useSharedValue(1);
-
-  const handlePressIn = () => {
+  const handlePress = (e: any) => {
     if (!disabled && !loading) {
-      scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      } catch {}
+      if (onPress) onPress();
     }
   };
-
-  const handlePressOut = () => {
-    if (!disabled && !loading) {
-      scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-    }
-  };
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-    };
-  });
 
   const getContainerStyles = () => {
     switch (variant) {
+      case 'blood':
+        return 'bg-blood-red border border-red-500/60 shadow-lg shadow-red-600/30';
+      case 'amber':
+        return 'bg-amber-600 border border-amber-500/50 shadow-md shadow-amber-600/25';
       case 'cyan':
-        return 'bg-neon-cyan border border-cyan-300/40';
+        return 'bg-cyan-500 border border-cyan-400/50 shadow-md shadow-cyan-500/25';
       case 'outline':
-        return 'bg-transparent border border-accent/60';
+        return 'bg-transparent border border-blood-red/60';
       case 'ghost':
-        return 'bg-surface-card border border-border-dark';
+        return 'bg-[#0D0D11]/90 border border-white/[0.07]';
       case 'emerald':
       default:
-        return 'bg-accent border border-emerald-400/40';
+        return 'bg-blood-red border border-red-500/60 shadow-lg shadow-red-600/30';
     }
   };
 
   const getTextStyles = () => {
     switch (variant) {
+      case 'blood':
+        return 'text-[#F4F4F5] font-black tracking-widest';
+      case 'amber':
+        return 'text-[#F4F4F5] font-black tracking-widest';
       case 'cyan':
-        return 'text-obsidian font-extrabold';
+        return 'text-[#0D0D11] font-black tracking-widest';
       case 'outline':
-        return 'text-accent font-bold';
+        return 'text-blood-red font-black tracking-widest';
       case 'ghost':
-        return 'text-white font-semibold';
+        return 'text-[#F4F4F5] font-bold tracking-widest';
       case 'emerald':
       default:
-        return 'text-obsidian font-extrabold';
+        return 'text-[#F4F4F5] font-black tracking-widest';
     }
   };
 
@@ -93,32 +84,33 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
       case 'sm':
         return 'py-2 px-3.5 rounded-lg';
       case 'lg':
-        return 'py-4 px-6 rounded-2xl';
+        return 'py-3.5 px-6 rounded-xl';
       case 'md':
       default:
-        return 'py-3.5 px-5 rounded-xl';
+        return 'py-3 px-5 rounded-xl';
     }
   };
 
   const getTextSizeStyles = () => {
     switch (size) {
       case 'sm':
-        return 'text-xs tracking-wider uppercase';
+        return 'text-[11px] uppercase tracking-widest';
       case 'lg':
-        return 'text-base tracking-widest uppercase';
+        return 'text-sm uppercase tracking-widest';
       case 'md':
       default:
-        return 'text-sm tracking-wider uppercase';
+        return 'text-xs uppercase tracking-widest';
     }
   };
 
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+    <Pressable
+      onPress={handlePress}
       disabled={disabled || loading}
-      style={[animatedStyle, style]}
+      style={({ pressed }) => [
+        { opacity: pressed ? 0.78 : 1 },
+        typeof style === 'function' ? (style as any)({ pressed }) : style,
+      ]}
       className={`flex-row items-center justify-center ${getSizeStyles()} ${getContainerStyles()} ${
         disabled ? 'opacity-40' : ''
       } ${className}`}
@@ -126,7 +118,7 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'outline' ? '#10B981' : '#090A0F'}
+          color={variant === 'outline' ? '#DC2626' : '#F4F4F5'}
         />
       ) : (
         <View className="flex-row items-center justify-center">
@@ -141,7 +133,7 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
           )}
         </View>
       )}
-    </AnimatedPressable>
+    </Pressable>
   );
 };
 
