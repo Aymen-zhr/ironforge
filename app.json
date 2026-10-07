@@ -1,11 +1,15 @@
 {
   "expo": {
-    "name": "Yharnam Forge",
-    "slug": "yharnam-forge",
+    "name": "Aegis",
+    "slug": "aegis",
+    "scheme": "aegis",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-router"
+    ],
     "ios": {
       "supportsTablet": true
     },

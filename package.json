@@ -1,8 +1,9 @@
 {
-  "name": "yharnam-forge",
+  "name": "aegis",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.117.2",
     "babel-preset-expo": "~57.0.0",
@@ -15,6 +16,7 @@
     "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.20",
     "expo-linking": "^57.0.12",
+    "expo-notifications": "~57.0.22",
     "expo-router": "^57.0.25",
     "expo-status-bar": "~57.0.1",
     "lucide-react-native": "^1.52.0",

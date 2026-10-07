@@ -261,10 +261,10 @@ export async function addMealToDailyLog(
     id: `meal-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     name: mealPayload.name,
     meal_type: mealPayload.meal_type || 'Lunch',
-    calories: Math.round(Number(mealPayload.calories) || 0),
-    protein_grams: Math.round(Number(mealPayload.protein_grams) || 0),
-    carbs_grams: Math.round(Number(mealPayload.carbs_grams) || 0),
-    fats_grams: Math.round(Number(mealPayload.fats_grams) || 0),
+    calories: Math.min(5000, Math.max(0, Math.round(Number(mealPayload.calories) || 0))),
+    protein_grams: Math.min(300, Math.max(0, Math.round(Number(mealPayload.protein_grams) || 0))),
+    carbs_grams: Math.min(500, Math.max(0, Math.round(Number(mealPayload.carbs_grams) || 0))),
+    fats_grams: Math.min(300, Math.max(0, Math.round(Number(mealPayload.fats_grams) || 0))),
     source: mealPayload.source || 'Manual',
     logged_at: new Date().toISOString(),
   };
@@ -376,6 +376,49 @@ export async function deleteMealFromDailyLog(
 }
 
 /**
+ * Resets all logged meals for the given date to 0.
+ */
+export async function clearDailyMeals(dateString?: string): Promise<DietLogData> {
+  const targetDate = dateString || new Date().toISOString().split('T')[0];
+  const storageKey = `@ironforge_diet_log_${targetDate}`;
+
+  const currentLog = await getDailyLog(targetDate);
+  const updatedLog: DietLogData = {
+    ...currentLog,
+    consumedCalories: 0,
+    consumedProtein: 0,
+    consumedCarbs: 0,
+    consumedFats: 0,
+    meals: [],
+  };
+
+  await AsyncStorage.setItem(storageKey, JSON.stringify(updatedLog));
+
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    if (user) {
+      await supabase.from('diet_logs').upsert(
+        {
+          user_id: user.id,
+          date: targetDate,
+          consumed_calories: 0,
+          consumed_protein: 0,
+          consumed_carbs: 0,
+          consumed_fats: 0,
+          meals_json: [],
+        },
+        { onConflict: 'user_id,date' }
+      );
+    }
+  } catch (err) {
+    console.warn('[dietService] clearDailyMeals warning:', err);
+  }
+
+  return updatedLog;
+}
+
+/**
  * Updates daily targets (e.g. from user goal switcher or profile update).
  */
 export async function updateDailyTargets(
@@ -441,7 +484,7 @@ export async function logWaterIntake(
 
   const updatedLog: DietLogData = {
     ...currentLog,
-    consumedWaterMl: Math.max(0, (currentLog.consumedWaterMl || 0) + amountMl),
+    consumedWaterMl: Math.min(8000, Math.max(0, (currentLog.consumedWaterMl || 0) + amountMl)),
   };
 
   await AsyncStorage.setItem(storageKey, JSON.stringify(updatedLog));

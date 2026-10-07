@@ -7,6 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
   Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -95,13 +96,19 @@ export default function TextPantryScreen() {
   const handleAddIngredient = (itemToAdd?: string) => {
     const text = (itemToAdd || inputText).trim();
     if (!text) return;
+
+    if (ingredients.length >= 15) {
+      Alert.alert('Pantry Capacity', 'Maximum of 15 ingredients reached. Remove some items first.');
+      return;
+    }
+
     triggerHaptic();
 
     // Support comma separated
-    const parts = text.split(',').map((p) => p.trim()).filter(Boolean);
+    const parts = text.split(',').map((p) => p.trim().slice(0, 30)).filter(Boolean);
     const updated = [...ingredients];
     parts.forEach((p) => {
-      if (!updated.some((item) => item.toLowerCase() === p.toLowerCase())) {
+      if (updated.length < 15 && !updated.some((item) => item.toLowerCase() === p.toLowerCase())) {
         updated.push(p);
       }
     });

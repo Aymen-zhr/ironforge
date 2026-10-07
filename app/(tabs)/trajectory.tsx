@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -21,7 +22,12 @@ import {
   Scale,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { getUserProfile, UserProfile } from '../../services/userMetrics';
+import {
+  getUserProfile,
+  UserProfile,
+  kgToLbs,
+  lbsToKg,
+} from '../../services/userMetrics';
 
 interface WeightCheckIn {
   id: string;
@@ -71,6 +77,17 @@ export default function TrajectoryScreen() {
     loadData();
   }, []);
 
+  // Reload profile when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      async function reload() {
+        const userProf = await getUserProfile();
+        if (userProf) setProfile(userProf);
+      }
+      reload();
+    }, [])
+  );
+
   const saveCheckIns = async (updated: WeightCheckIn[]) => {
     setCheckIns(updated);
     try {
@@ -80,18 +97,28 @@ export default function TrajectoryScreen() {
     }
   };
 
+  const isImperial = profile?.unitSystem === 'imperial';
+  const unitLabel = isImperial ? 'lbs' : 'kg';
+  const formatW = (kg: number) => (isImperial ? kgToLbs(kg) : Math.round(kg * 10) / 10);
+
   const handleAddCheckIn = async () => {
     const val = parseFloat(newWeightInput);
-    if (!val || val <= 30 || val >= 300) {
-      Alert.alert('Invalid Weight', 'Please enter a valid bodyweight in kg.');
+    const minW = isImperial ? 77 : 35;
+    const maxW = isImperial ? 550 : 250;
+    if (isNaN(val) || val < minW || val > maxW) {
+      Alert.alert(
+        'Invalid Weight',
+        `Please enter a valid bodyweight between ${minW} ${unitLabel} and ${maxW} ${unitLabel}.`
+      );
       return;
     }
     triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
 
+    const finalWeightKg = isImperial ? lbsToKg(val) : Math.round(val * 10) / 10;
     const newEntry: WeightCheckIn = {
       id: String(Date.now()),
       date: new Date().toISOString(),
-      weightKg: Math.round(val * 10) / 10,
+      weightKg: finalWeightKg,
     };
 
     const updated = [newEntry, ...checkIns];
@@ -108,8 +135,17 @@ export default function TrajectoryScreen() {
 
   const startWeight = profile?.weightKg || (checkIns[checkIns.length - 1]?.weightKg ?? 78);
   const latestWeight = checkIns[0]?.weightKg ?? startWeight;
-  const monthlyDelta = profile?.monthlyKgDelta ?? 1.0;
-  const weeklyTargetDelta = Math.round((monthlyDelta / 4.33) * 100) / 100;
+  const rawTargetDelta = profile?.monthlyKgTarget ?? 1.0;
+  
+  // Goal-aware effective monthly delta: cut reduces weight, bulk increases weight, recomp maintains
+  const effectiveMonthlyDelta =
+    profile?.goal === 'cut'
+      ? -rawTargetDelta
+      : profile?.goal === 'bulk'
+      ? rawTargetDelta
+      : 0;
+
+  const weeklyTargetDelta = Math.round((effectiveMonthlyDelta / 4.33) * 100) / 100;
 
   // Calculate actual weekly rate of change from the most recent 2 check-ins
   let actualWeeklyDelta = 0;
@@ -124,7 +160,7 @@ export default function TrajectoryScreen() {
   // Generate 8-week target trajectory data points
   const timelineWeeks = [0, 1, 2, 3, 4, 6, 8];
   const targetCurvePoints = timelineWeeks.map((week) => {
-    const targetW = startWeight + (monthlyDelta / 4.33) * week;
+    const targetW = startWeight + (effectiveMonthlyDelta / 4.33) * week;
     return { week, targetWeight: Math.round(targetW * 10) / 10 };
   });
 
@@ -181,7 +217,7 @@ export default function TrajectoryScreen() {
                 Current Weight
               </Text>
               <Text className="text-white text-3xl font-black font-mono tracking-tight mt-0.5">
-                {latestWeight} kg
+                {formatW(latestWeight)} {unitLabel}
               </Text>
             </View>
 
@@ -190,13 +226,13 @@ export default function TrajectoryScreen() {
                 Target Velocity
               </Text>
               <View className="flex-row items-center gap-1 mt-0.5">
-                {monthlyDelta >= 0 ? (
+                {effectiveMonthlyDelta >= 0 ? (
                   <TrendingUp size={16} color="#FFFFFF" />
                 ) : (
                   <TrendingDown size={16} color="#FFFFFF" />
                 )}
                 <Text className="text-white font-mono text-base font-bold">
-                  {monthlyDelta >= 0 ? `+${monthlyDelta}` : monthlyDelta} kg / mo
+                  {effectiveMonthlyDelta >= 0 ? `+${formatW(effectiveMonthlyDelta)}` : formatW(effectiveMonthlyDelta)} {unitLabel} / mo
                 </Text>
               </View>
             </View>
@@ -207,19 +243,19 @@ export default function TrajectoryScreen() {
             <View>
               <Text className="text-[#71717A] text-xs">Baseline</Text>
               <Text className="text-white font-mono text-sm font-semibold mt-0.5">
-                {startWeight} kg
+                {formatW(startWeight)} {unitLabel}
               </Text>
             </View>
             <View>
               <Text className="text-[#71717A] text-xs">Target Weekly Rate</Text>
               <Text className="text-white font-mono text-sm font-semibold mt-0.5">
-                {weeklyTargetDelta >= 0 ? `+${weeklyTargetDelta}` : weeklyTargetDelta} kg/wk
+                {weeklyTargetDelta >= 0 ? `+${formatW(weeklyTargetDelta)}` : formatW(weeklyTargetDelta)} {unitLabel}/wk
               </Text>
             </View>
             <View>
               <Text className="text-[#71717A] text-xs">Actual Rate</Text>
               <Text className="text-white font-mono text-sm font-semibold mt-0.5">
-                {actualWeeklyDelta >= 0 ? `+${actualWeeklyDelta}` : actualWeeklyDelta} kg/wk
+                {actualWeeklyDelta >= 0 ? `+${formatW(actualWeeklyDelta)}` : formatW(actualWeeklyDelta)} {unitLabel}/wk
               </Text>
             </View>
           </View>
@@ -312,7 +348,7 @@ export default function TrajectoryScreen() {
                   </View>
                   <View>
                     <Text className="text-white font-bold font-mono text-base">
-                      {item.weightKg} kg
+                      {formatW(item.weightKg)} {unitLabel}
                     </Text>
                     <Text className="text-[#71717A] text-xs">
                       {checkDate}
@@ -331,7 +367,7 @@ export default function TrajectoryScreen() {
                           : 'text-[#71717A]'
                       }`}
                     >
-                      {delta > 0 ? `+${delta}` : delta} kg
+                      {delta > 0 ? `+${formatW(delta)}` : formatW(delta)} {unitLabel}
                     </Text>
                   ) : (
                     <Text className="text-[#71717A] text-xs font-mono">Baseline</Text>
@@ -375,14 +411,14 @@ export default function TrajectoryScreen() {
 
             <View className="gap-4 mb-6">
               <Text className="text-[#71717A] text-xs">
-                Enter your morning fasted weight to calculate weekly velocity.
+                Enter your morning fasted weight in {unitLabel} to calculate weekly velocity.
               </Text>
 
               <TextInput
                 value={newWeightInput}
                 onChangeText={setNewWeightInput}
                 keyboardType="numeric"
-                placeholder={`Current: ${latestWeight} kg`}
+                placeholder={`Current: ${formatW(latestWeight)} ${unitLabel}`}
                 placeholderTextColor="#71717A"
                 className="w-full px-5 py-4 rounded-2xl bg-[#18181D] border border-white/[0.08] text-white text-lg font-mono"
               />

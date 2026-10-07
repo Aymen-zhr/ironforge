@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import {
   Droplets,
   CloudSun,
@@ -54,10 +56,23 @@ export default function RecoveryScreen() {
     loadRecoveryData();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadRecoveryData();
+    }, [])
+  );
+
   const handleAddWater = async (amountMl: number) => {
     triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    const current = dietLog?.consumedWaterMl || 0;
+    // Physical human boundary: max 7,000 mL daily
+    if (current >= 7000) {
+      Alert.alert('Hydration Limit', 'Daily safe hydration ceiling (7,000 mL) reached.');
+      return;
+    }
+    const safeAmount = Math.min(1000, Math.max(50, amountMl));
     try {
-      const updated = await logWaterIntake(amountMl);
+      const updated = await logWaterIntake(safeAmount);
       setDietLog(updated);
     } catch (err) {
       console.warn('[handleAddWater] Error logging water:', err);
@@ -84,12 +99,12 @@ export default function RecoveryScreen() {
 
   // Calculate dynamic hydration target using ambient temperature
   const weight = profile?.weightKg || 78;
-  const trainingDays = profile?.trainingDaysCount || 4;
+  const trainingDays = profile?.trainingDaysPerWeek || 4;
   const currentTemp = weather?.temperature ?? 22;
   const dynamicHydrationTarget = calculateHydrationTarget(weight, trainingDays, currentTemp);
 
-  const consumedWater = dietLog?.consumedWaterMl || 0;
-  const waterProgress = Math.min(100, Math.round((consumedWater / dynamicHydrationTarget) * 100));
+  const consumedWater = Math.max(0, dietLog?.consumedWaterMl || 0);
+  const waterProgress = Math.max(0, Math.min(100, Math.round((consumedWater / Math.max(1000, dynamicHydrationTarget)) * 100)));
   const isHeatAlert = currentTemp > 25;
 
   return (

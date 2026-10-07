@@ -6,154 +6,105 @@ import {
   Pressable,
   TextInput,
   Alert,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  Flame,
-  Activity,
-  Dumbbell,
-  Target,
-  Droplets,
-} from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
-import {
-  calculateBMR,
-  calculateTDEE,
-  calculateMacros,
-  calculateHydrationTarget,
-  saveUserProfile,
-  UserProfile,
-  FitnessGoal,
-  SplitPreference,
-} from '../services/userMetrics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { calculateFullProfile, UserProfile } from '../services/userMetrics';
 
-const DAYS_OF_WEEK = [
-  { key: 'Mon', label: 'Mon' },
-  { key: 'Tue', label: 'Tue' },
-  { key: 'Wed', label: 'Wed' },
-  { key: 'Thu', label: 'Thu' },
-  { key: 'Fri', label: 'Fri' },
-  { key: 'Sat', label: 'Sat' },
-  { key: 'Sun', label: 'Sun' },
+const DAYS_OF_WEEK = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+const GOAL_OPTIONS: { id: 'cut' | 'bulk' | 'recomp'; label: string; desc: string; defaultPace: number }[] = [
+  { id: 'cut', label: 'Aggressive Cut', desc: 'Accelerated fat loss and definition', defaultPace: 2.0 },
+  { id: 'bulk', label: 'Lean Bulk', desc: 'Caloric surplus for muscle hypertrophy', defaultPace: 1.5 },
+  { id: 'recomp', label: 'Body Recomposition', desc: 'Maintain mass while trimming fat', defaultPace: 0.5 },
 ];
 
-const GOAL_OPTIONS: { goal: FitnessGoal; defaultDelta: number; desc: string }[] = [
-  { goal: 'Aggressive Cut', defaultDelta: -2.0, desc: 'Fast fat loss (-2.0 kg/mo)' },
-  { goal: 'Moderate Cut', defaultDelta: -1.0, desc: 'Sustainable fat loss (-1.0 kg/mo)' },
-  { goal: 'Recomp', defaultDelta: 0.0, desc: 'Maintain mass & recomposition (0 kg/mo)' },
-  { goal: 'Lean Bulk', defaultDelta: 1.0, desc: 'Hypertrophy muscle gain (+1.0 kg/mo)' },
-];
-
-const SPLIT_OPTIONS: { split: SplitPreference; desc: string }[] = [
-  { split: 'Push / Pull / Legs', desc: 'Push, Pull, Legs hypertrophy rotation' },
-  { split: 'Upper / Lower', desc: 'Upper body and lower body frequency' },
-  { split: 'Bro Split', desc: 'Chest, Back, Legs, Shoulders & Arms overload' },
+const SPLIT_OPTIONS: { id: 'ppl' | 'upper_lower' | 'bro_split'; label: string; desc: string }[] = [
+  { id: 'ppl', label: 'Push / Pull / Legs', desc: 'Hypertrophy focus' },
+  { id: 'upper_lower', label: 'Upper / Lower', desc: 'Strength & frequency' },
+  { id: 'bro_split', label: 'Bro Split', desc: 'Chest, Back, Legs, Shoulders/Arms' },
 ];
 
 export default function OnboardingScreen() {
+  const router = useRouter();
   const [step, setStep] = useState<number>(1);
 
-  // Step 1: Biometrics
-  const [heightCm, setHeightCm] = useState<string>('180');
-  const [weightKg, setWeightKg] = useState<string>('78');
-  const [age, setAge] = useState<string>('24');
-  const [sex, setSex] = useState<'Male' | 'Female'>('Male');
+  // Form states as requested
+  const [height, setHeight] = useState<string>('178');
+  const [weight, setWeight] = useState<string>('75');
+  const [age, setAge] = useState<string>('22');
+  const [sex, setSex] = useState<'male' | 'female'>('male');
+  const [goal, setGoal] = useState<'cut' | 'bulk' | 'recomp'>('cut');
+  const [monthlyTarget, setMonthlyTarget] = useState<number>(2);
+  const [selectedDays, setSelectedDays] = useState<string[]>(['Mon', 'Wed', 'Fri']);
+  const [splitPreference, setSplitPreference] = useState<'ppl' | 'upper_lower' | 'bro_split'>('ppl');
 
-  // Step 2: Goal & Target Monthly Delta
-  const [selectedGoal, setSelectedGoal] = useState<FitnessGoal>('Lean Bulk');
-  const [monthlyDelta, setMonthlyDelta] = useState<number>(1.0);
-
-  // Step 3: Days per week & selected days
-  const [trainingDaysCount, setTrainingDaysCount] = useState<number>(4);
-  const [selectedDays, setSelectedDays] = useState<string[]>(['Mon', 'Tue', 'Thu', 'Fri']);
-
-  // Step 4: Split Preference
-  const [splitPreference, setSplitPreference] = useState<SplitPreference>('Push / Pull / Legs');
-
-  const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
-    try {
-      Haptics.impactAsync(style).catch(() => {});
-    } catch {}
-  };
-
-  const handleToggleDay = (dayKey: string) => {
-    triggerHaptic();
-    if (selectedDays.includes(dayKey)) {
+  const toggleDay = (day: string) => {
+    // Map uppercase display tag to formatted day string
+    const formatted = day.charAt(0) + day.slice(1).toLowerCase();
+    if (selectedDays.includes(formatted)) {
       if (selectedDays.length <= 1) return;
-      const filtered = selectedDays.filter((d) => d !== dayKey);
-      setSelectedDays(filtered);
-      setTrainingDaysCount(filtered.length);
+      setSelectedDays(selectedDays.filter((d) => d !== formatted));
     } else {
-      if (selectedDays.length >= 7) return;
-      const updated = [...selectedDays, dayKey];
-      setSelectedDays(updated);
-      setTrainingDaysCount(updated.length);
+      setSelectedDays([...selectedDays, formatted]);
     }
   };
 
   const handleNextStep = () => {
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
     if (step === 1) {
-      const h = parseFloat(heightCm);
-      const w = parseFloat(weightKg);
+      const h = parseFloat(height);
+      const w = parseFloat(weight);
       const a = parseInt(age, 10);
-      if (!h || !w || !a || h <= 50 || w <= 30 || a <= 10) {
-        Alert.alert('Invalid Entry', 'Please enter valid values for height, weight, and age.');
+      if (isNaN(h) || h < 120 || h > 240) {
+        Alert.alert('Invalid Height', 'Height must be between 120 cm and 240 cm.');
+        return;
+      }
+      if (isNaN(w) || w < 35 || w > 250) {
+        Alert.alert('Invalid Weight', 'Weight must be between 35 kg and 250 kg.');
+        return;
+      }
+      if (isNaN(a) || a < 14 || a > 99) {
+        Alert.alert('Invalid Age', 'Age must be between 14 and 99 years.');
         return;
       }
     }
-    if (step === 3 && selectedDays.length === 0) {
-      Alert.alert('Select Days', 'Please select at least 1 active training day.');
+    if (step === 3 && (selectedDays.length === 0 || selectedDays.length > 7)) {
+      Alert.alert('Training Days', 'Please select between 1 and 7 active training days.');
       return;
     }
-    setStep((prev) => Math.min(5, prev + 1));
+    setStep((prev) => Math.min(4, Math.max(1, prev + 1)));
   };
 
   const handlePrevStep = () => {
-    triggerHaptic();
-    setStep((prev) => Math.max(1, prev - 1));
+    setStep((prev) => Math.min(4, Math.max(1, prev - 1)));
   };
 
-  // Calculations for Step 5
-  const parsedWeight = parseFloat(weightKg) || 78;
-  const parsedHeight = parseFloat(heightCm) || 180;
-  const parsedAge = parseInt(age, 10) || 24;
+  const handleCompleteSetup = async () => {
+    const rawH = parseFloat(height);
+    const rawW = parseFloat(weight);
+    const rawA = parseInt(age, 10);
 
-  const bmr = calculateBMR(parsedWeight, parsedHeight, parsedAge, sex);
-  const tdee = calculateTDEE(bmr, selectedDays.length);
-  const macros = calculateMacros(tdee, selectedGoal, monthlyDelta, parsedWeight);
-  const hydrationTarget = calculateHydrationTarget(parsedWeight, selectedDays.length);
+    const heightCm = Math.min(240, Math.max(120, isNaN(rawH) ? 178 : rawH));
+    const weightKg = Math.min(250, Math.max(35, isNaN(rawW) ? 75 : rawW));
+    const userAge = Math.min(99, Math.max(14, isNaN(rawA) ? 22 : rawA));
+    const safeMonthlyTarget = Math.min(4.0, Math.max(0.2, monthlyTarget || 1.0));
+    const safeDays = selectedDays.length > 0 ? selectedDays : ['Mon', 'Wed', 'Fri'];
 
-  const handleFinishOnboarding = async () => {
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
-    const profile: UserProfile = {
-      heightCm: parsedHeight,
-      weightKg: parsedWeight,
-      age: parsedAge,
+    const profile: UserProfile = calculateFullProfile({
+      heightCm,
+      weightKg,
+      age: userAge,
       sex,
-      goal: selectedGoal,
-      monthlyKgDelta: monthlyDelta,
-      trainingDaysCount: selectedDays.length,
-      trainingDays: selectedDays,
+      goal,
+      monthlyKgTarget: safeMonthlyTarget,
+      trainingDaysPerWeek: safeDays.length,
+      trainingDays: safeDays,
       splitPreference,
-      bmr,
-      tdee,
-      targetCalories: macros.targetCalories,
-      targetProtein: macros.targetProtein,
-      targetCarbs: macros.targetCarbs,
-      targetFats: macros.targetFats,
-      targetWaterMl: hydrationTarget,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    });
 
     try {
-      await saveUserProfile(profile);
+      await AsyncStorage.setItem('@ironforge_user_profile', JSON.stringify(profile));
       router.replace('/(tabs)');
     } catch (err) {
       console.warn('[Onboarding] Error saving profile:', err);
@@ -162,108 +113,81 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top', 'left', 'right', 'bottom']}>
-      {/* Header with step progress indicator */}
-      <View className="px-6 py-5 border-b border-white/[0.08] flex-row items-center justify-between">
-        <View className="flex-row items-center">
-          {step > 1 ? (
-            <Pressable
-              onPress={handlePrevStep}
-              className="w-8 h-8 rounded-full bg-[#18181D] items-center justify-center mr-3"
-            >
-              <ChevronLeft size={16} color="#FFFFFF" />
-            </Pressable>
-          ) : null}
+    <SafeAreaView className="flex-1 bg-[#09090B]">
+      {/* Header & Step Indicator */}
+      <View className="px-6 py-6 border-b border-white/[0.08] flex-row items-center justify-between">
+        <View>
           <Text className="text-white text-xs font-bold tracking-[3px] uppercase">
-            CALIBRATION // STEP {step} OF 5
+            CALIBRATION
+          </Text>
+          <Text className="text-[#71717A] text-[11px] font-mono mt-0.5">
+            STEP {step} OF 4
           </Text>
         </View>
 
-        <Text className="text-[#71717A] text-xs font-mono">
-          {Math.round((step / 5) * 100)}%
-        </Text>
-      </View>
-
-      {/* Progress Line */}
-      <View className="w-full h-1 bg-[#18181D]">
-        <View
-          className="h-full bg-white transition-all"
-          style={{ width: `${(step / 5) * 100}%` }}
-        />
+        {/* Step Progress Pills */}
+        <View className="flex-row gap-1.5">
+          {[1, 2, 3, 4].map((s) => (
+            <View
+              key={s}
+              className={`h-1.5 rounded-full ${
+                s === step
+                  ? 'w-6 bg-[#DC2626]'
+                  : s < step
+                  ? 'w-3 bg-white'
+                  : 'w-3 bg-white/[0.15]'
+              }`}
+            />
+          ))}
+        </View>
       </View>
 
       <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 28, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 32 }}
+        className="flex-1"
       >
-        {/* STEP 1: BIOMETRICS */}
+        {/* STEP 1: PHYSICAL METRICS */}
         {step === 1 && (
           <View className="gap-6">
-            <View className="items-center mb-1">
-              <Image
-                source={require('../assets/generated/logo.jpg')}
-                className="w-16 h-16 rounded-2xl mb-2.5"
-                resizeMode="cover"
-              />
-              <Text className="text-white text-[11px] font-bold tracking-[3px] uppercase">
-                YHARNAM FORGE
-              </Text>
-            </View>
-
             <View>
               <Text className="text-white text-2xl font-bold tracking-tight mb-1">
-                Biometric Baseline
+                Physical Metrics
               </Text>
               <Text className="text-[#71717A] text-xs">
-                Essential inputs for Mifflin-St Jeor metabolic calculations.
+                Essential baseline for metabolic expenditure calculations.
               </Text>
             </View>
 
-            {/* Sex Toggle */}
+            {/* Sex Segmented Toggle */}
             <View className="gap-2">
               <Text className="text-white text-xs font-semibold uppercase tracking-wider">
                 Biological Sex
               </Text>
               <View className="flex-row gap-3">
-                {(['Male', 'Female'] as const).map((s) => (
-                  <Pressable
-                    key={s}
-                    onPress={() => {
-                      triggerHaptic();
-                      setSex(s);
-                    }}
-                    className={`flex-1 py-3.5 rounded-2xl items-center justify-center border ${
-                      sex === s
-                        ? 'bg-white border-white'
-                        : 'bg-[#121216] border-white/[0.08]'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-bold uppercase tracking-wider ${
-                        sex === s ? 'text-[#09090B]' : 'text-[#71717A]'
+                {(['male', 'female'] as const).map((s) => {
+                  const isSelected = sex === s;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => setSex(s)}
+                      className={`flex-1 py-3.5 rounded-2xl items-center justify-center border ${
+                        isSelected
+                          ? 'bg-[#DC2626] border-[#DC2626]'
+                          : 'bg-[#121216] border-white/[0.08]'
                       }`}
                     >
-                      {s}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        className={`text-xs font-bold uppercase tracking-wider ${
+                          isSelected ? 'text-white' : 'text-[#71717A]'
+                        }`}
+                      >
+                        {s}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            </View>
-
-            {/* Weight Input */}
-            <View className="gap-2">
-              <Text className="text-white text-xs font-semibold uppercase tracking-wider">
-                Current Weight (kg)
-              </Text>
-              <TextInput
-                value={weightKg}
-                onChangeText={setWeightKg}
-                keyboardType="numeric"
-                placeholder="78"
-                placeholderTextColor="#71717A"
-                className="w-full px-5 py-4 rounded-2xl bg-[#121216] border border-white/[0.08] text-white text-base font-mono"
-              />
             </View>
 
             {/* Height Input */}
@@ -272,10 +196,25 @@ export default function OnboardingScreen() {
                 Height (cm)
               </Text>
               <TextInput
-                value={heightCm}
-                onChangeText={setHeightCm}
+                value={height}
+                onChangeText={setHeight}
                 keyboardType="numeric"
-                placeholder="180"
+                placeholder="178"
+                placeholderTextColor="#71717A"
+                className="w-full px-5 py-4 rounded-2xl bg-[#121216] border border-white/[0.08] text-white text-base font-mono"
+              />
+            </View>
+
+            {/* Weight Input */}
+            <View className="gap-2">
+              <Text className="text-white text-xs font-semibold uppercase tracking-wider">
+                Weight (kg)
+              </Text>
+              <TextInput
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="numeric"
+                placeholder="75"
                 placeholderTextColor="#71717A"
                 className="w-full px-5 py-4 rounded-2xl bg-[#121216] border border-white/[0.08] text-white text-base font-mono"
               />
@@ -290,7 +229,7 @@ export default function OnboardingScreen() {
                 value={age}
                 onChangeText={setAge}
                 keyboardType="numeric"
-                placeholder="24"
+                placeholder="22"
                 placeholderTextColor="#71717A"
                 className="w-full px-5 py-4 rounded-2xl bg-[#121216] border border-white/[0.08] text-white text-base font-mono"
               />
@@ -298,43 +237,41 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* STEP 2: GOAL & MONTHLY DELTA */}
+        {/* STEP 2: GOAL & PACE */}
         {step === 2 && (
           <View className="gap-6">
             <View>
               <Text className="text-white text-2xl font-bold tracking-tight mb-1">
-                Body Composition Goal
+                Goal & Pace
               </Text>
               <Text className="text-[#71717A] text-xs">
-                Defines target energy surplus or deficit velocity.
+                Select your physique objective and monthly rate of progression.
               </Text>
             </View>
 
+            {/* Goal Cards */}
             <View className="gap-3">
               {GOAL_OPTIONS.map((item) => {
-                const isSelected = selectedGoal === item.goal;
+                const isSelected = goal === item.id;
                 return (
                   <Pressable
-                    key={item.goal}
+                    key={item.id}
                     onPress={() => {
-                      triggerHaptic();
-                      setSelectedGoal(item.goal);
-                      setMonthlyDelta(item.defaultDelta);
+                      setGoal(item.id);
+                      setMonthlyTarget(item.defaultPace);
                     }}
                     className={`p-5 rounded-3xl border ${
                       isSelected
-                        ? 'bg-[#18181D] border-white'
+                        ? 'bg-[#18181D] border-[#DC2626]'
                         : 'bg-[#121216] border-white/[0.08]'
                     }`}
                   >
                     <View className="flex-row items-center justify-between mb-1">
                       <Text className="text-white font-bold text-base">
-                        {item.goal}
+                        {item.label}
                       </Text>
                       {isSelected && (
-                        <View className="w-5 h-5 rounded-full bg-white items-center justify-center">
-                          <Check size={12} color="#09090B" />
-                        </View>
+                        <View className="w-2.5 h-2.5 rounded-full bg-[#DC2626]" />
                       )}
                     </View>
                     <Text className="text-[#71717A] text-xs">
@@ -345,88 +282,83 @@ export default function OnboardingScreen() {
               })}
             </View>
 
-            {/* Target Monthly Delta Adjuster */}
+            {/* Monthly Target Rate Card */}
             <View className="p-5 rounded-3xl bg-[#121216] border border-white/[0.08] gap-3">
-              <Text className="text-white text-xs font-semibold uppercase tracking-wider">
-                Monthly Target Rate of Change
-              </Text>
               <View className="flex-row items-center justify-between">
-                <Text className="text-white font-mono text-xl font-bold">
-                  {monthlyDelta > 0 ? `+${monthlyDelta}` : monthlyDelta} kg / month
+                <Text className="text-white text-xs font-semibold uppercase tracking-wider">
+                  Target Rate
                 </Text>
-                <Text className="text-[#71717A] text-xs">
-                  {monthlyDelta > 0
-                    ? `+${Math.round((monthlyDelta * 7700) / 30)} kcal/day`
-                    : monthlyDelta < 0
-                    ? `${Math.round((monthlyDelta * 7700) / 30)} kcal/day`
-                    : 'Maintenance'}
+                <Text className="text-white font-mono text-base font-bold">
+                  {monthlyTarget} kg / month
                 </Text>
               </View>
 
               <View className="flex-row gap-2 mt-1">
-                {[-2.0, -1.0, 0.0, 0.5, 1.0].map((deltaVal) => (
-                  <Pressable
-                    key={deltaVal}
-                    onPress={() => {
-                      triggerHaptic();
-                      setMonthlyDelta(deltaVal);
-                    }}
-                    className={`flex-1 py-2 rounded-xl items-center justify-center border ${
-                      monthlyDelta === deltaVal
-                        ? 'bg-white border-white'
-                        : 'bg-[#18181D] border-white/[0.08]'
-                    }`}
-                  >
-                    <Text
-                      className={`text-[11px] font-mono font-bold ${
-                        monthlyDelta === deltaVal ? 'text-[#09090B]' : 'text-[#71717A]'
+                {[0.5, 1.0, 1.5, 2.0, 2.5].map((val) => {
+                  const isValSelected = monthlyTarget === val;
+                  return (
+                    <Pressable
+                      key={val}
+                      onPress={() => setMonthlyTarget(val)}
+                      className={`flex-1 py-2.5 rounded-xl items-center justify-center border ${
+                        isValSelected
+                          ? 'bg-[#DC2626] border-[#DC2626]'
+                          : 'bg-[#18181D] border-white/[0.08]'
                       }`}
                     >
-                      {deltaVal > 0 ? `+${deltaVal}` : deltaVal}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        className={`text-xs font-mono font-bold ${
+                          isValSelected ? 'text-white' : 'text-[#71717A]'
+                        }`}
+                      >
+                        {val}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
           </View>
         )}
 
-        {/* STEP 3: DAYS PER WEEK & SCHEDULE */}
+        {/* STEP 3: TRAINING DAYS & SCHEDULE */}
         {step === 3 && (
           <View className="gap-6">
             <View>
               <Text className="text-white text-2xl font-bold tracking-tight mb-1">
-                Training Days Schedule
+                Training Days & Schedule
               </Text>
               <Text className="text-[#71717A] text-xs">
-                Select the specific days of the week you train.
+                Tap the days of the week you dedicate to resistance training.
               </Text>
             </View>
 
-            {/* Active Day Pills */}
-            <View className="gap-2.5">
+            {/* Day Chips */}
+            <View className="gap-3">
               <Text className="text-white text-xs font-semibold uppercase tracking-wider">
-                Weekly Days ({selectedDays.length} Days Active)
+                Active Workout Days ({selectedDays.length} Days)
               </Text>
-              <View className="flex-row gap-2">
-                {DAYS_OF_WEEK.map((day) => {
-                  const isDayActive = selectedDays.includes(day.key);
+
+              <View className="flex-row flex-wrap gap-2.5">
+                {DAYS_OF_WEEK.map((dayTag) => {
+                  const formatted = dayTag.charAt(0) + dayTag.slice(1).toLowerCase();
+                  const isActive = selectedDays.includes(formatted);
                   return (
                     <Pressable
-                      key={day.key}
-                      onPress={() => handleToggleDay(day.key)}
-                      className={`flex-1 py-3.5 rounded-2xl items-center justify-center border ${
-                        isDayActive
-                          ? 'bg-white border-white'
+                      key={dayTag}
+                      onPress={() => toggleDay(dayTag)}
+                      className={`py-3 px-4 rounded-2xl border ${
+                        isActive
+                          ? 'bg-[#DC2626] border-[#DC2626]'
                           : 'bg-[#121216] border-white/[0.08]'
                       }`}
                     >
                       <Text
-                        className={`text-xs font-bold ${
-                          isDayActive ? 'text-[#09090B]' : 'text-[#71717A]'
+                        className={`text-xs font-bold tracking-wider ${
+                          isActive ? 'text-white' : 'text-[#71717A]'
                         }`}
                       >
-                        {day.label}
+                        {dayTag}
                       </Text>
                     </Pressable>
                   );
@@ -434,61 +366,50 @@ export default function OnboardingScreen() {
               </View>
             </View>
 
+            {/* Frequency Card */}
             <View className="p-5 rounded-3xl bg-[#121216] border border-white/[0.08] gap-2">
               <Text className="text-white text-sm font-bold">
-                Frequency Impact
+                Weekly Volume
               </Text>
               <Text className="text-[#71717A] text-xs leading-5">
-                {selectedDays.length} sessions per week generates an activity multiplier of{' '}
-                {selectedDays.length >= 6
-                  ? '1.725x (Very Active)'
-                  : selectedDays.length >= 5
-                  ? '1.55x (Moderately Active)'
-                  : selectedDays.length >= 4
-                  ? '1.465x (Moderate)'
-                  : '1.375x (Light)'}
-                . Rest days will display active recovery protocols.
+                {selectedDays.length} days active per week. Your rest days will automatically configure recovery and hydration protocols.
               </Text>
             </View>
           </View>
         )}
 
-        {/* STEP 4: SPLIT PREFERENCE */}
+        {/* STEP 4: WORKOUT ARCHITECTURE */}
         {step === 4 && (
           <View className="gap-6">
             <View>
               <Text className="text-white text-2xl font-bold tracking-tight mb-1">
-                Hypertrophy Split
+                Workout Architecture
               </Text>
               <Text className="text-[#71717A] text-xs">
-                Select your preferred periodization split.
+                Select the training split aligned with your recovery and goals.
               </Text>
             </View>
 
+            {/* Split Options */}
             <View className="gap-3">
               {SPLIT_OPTIONS.map((item) => {
-                const isSelected = splitPreference === item.split;
+                const isSelected = splitPreference === item.id;
                 return (
                   <Pressable
-                    key={item.split}
-                    onPress={() => {
-                      triggerHaptic();
-                      setSplitPreference(item.split);
-                    }}
+                    key={item.id}
+                    onPress={() => setSplitPreference(item.id)}
                     className={`p-5 rounded-3xl border ${
                       isSelected
-                        ? 'bg-[#18181D] border-white'
+                        ? 'bg-[#18181D] border-[#DC2626]'
                         : 'bg-[#121216] border-white/[0.08]'
                     }`}
                   >
                     <View className="flex-row items-center justify-between mb-1">
                       <Text className="text-white font-bold text-base">
-                        {item.split}
+                        {item.label}
                       </Text>
                       {isSelected && (
-                        <View className="w-5 h-5 rounded-full bg-white items-center justify-center">
-                          <Check size={12} color="#09090B" />
-                        </View>
+                        <View className="w-2.5 h-2.5 rounded-full bg-[#DC2626]" />
                       )}
                     </View>
                     <Text className="text-[#71717A] text-xs">
@@ -501,120 +422,49 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* STEP 5: CALCULATION SUMMARY */}
-        {step === 5 && (
-          <View className="gap-6">
-            <View>
-              <Text className="text-white text-2xl font-bold tracking-tight mb-1">
-                Engine Calibration
-              </Text>
-              <Text className="text-[#71717A] text-xs">
-                Calculated metabolic profile and prescription.
-              </Text>
-            </View>
-
-            {/* Target Energy & TDEE */}
-            <View className="p-5 rounded-3xl bg-[#121216] border border-white/[0.08] gap-4">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-[#71717A] text-xs uppercase tracking-wider">
-                  Target Daily Intake
-                </Text>
-                <Text className="text-white font-mono text-2xl font-black">
-                  {macros.targetCalories} kcal
-                </Text>
-              </View>
-
-              <View className="flex-row justify-between pt-3 border-t border-white/[0.06]">
-                <View>
-                  <Text className="text-[#71717A] text-[11px]">BMR</Text>
-                  <Text className="text-white font-mono text-sm font-semibold mt-0.5">
-                    {bmr} kcal
+        {/* Navigation Actions */}
+        <View className="mt-8 gap-3">
+          {step < 4 ? (
+            <View className="flex-row gap-3">
+              {step > 1 && (
+                <Pressable
+                  onPress={handlePrevStep}
+                  className="flex-1 py-4 rounded-full bg-[#18181D] border border-white/[0.08] items-center justify-center"
+                >
+                  <Text className="text-white font-bold text-xs uppercase tracking-wider">
+                    Back
                   </Text>
-                </View>
-                <View>
-                  <Text className="text-[#71717A] text-[11px]">TDEE</Text>
-                  <Text className="text-white font-mono text-sm font-semibold mt-0.5">
-                    {tdee} kcal
-                  </Text>
-                </View>
-                <View>
-                  <Text className="text-[#71717A] text-[11px]">Velocity</Text>
-                  <Text className="text-white font-mono text-sm font-semibold mt-0.5">
-                    {monthlyDelta >= 0 ? `+${monthlyDelta}` : monthlyDelta} kg/mo
-                  </Text>
-                </View>
-              </View>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={handleNextStep}
+                className="flex-1 py-4 rounded-full bg-white items-center justify-center"
+              >
+                <Text className="text-[#09090B] font-bold text-xs uppercase tracking-wider">
+                  Continue
+                </Text>
+              </Pressable>
             </View>
-
-            {/* Target Macros Breakdown */}
-            <View className="p-5 rounded-3xl bg-[#121216] border border-white/[0.08] gap-3">
-              <Text className="text-white text-xs font-semibold uppercase tracking-wider mb-1">
-                Macronutrient Prescription
-              </Text>
-
-              <View className="flex-row justify-between items-center py-1">
-                <Text className="text-[#71717A] text-xs">Protein (2.2g/kg)</Text>
-                <Text className="text-white font-mono text-sm font-bold">
-                  {macros.targetProtein}g
-                </Text>
-              </View>
-
-              <View className="flex-row justify-between items-center py-1">
-                <Text className="text-[#71717A] text-xs">Fats (0.9g/kg)</Text>
-                <Text className="text-white font-mono text-sm font-bold">
-                  {macros.targetFats}g
-                </Text>
-              </View>
-
-              <View className="flex-row justify-between items-center py-1">
-                <Text className="text-[#71717A] text-xs">Carbohydrates</Text>
-                <Text className="text-white font-mono text-sm font-bold">
-                  {macros.targetCarbs}g
-                </Text>
-              </View>
-            </View>
-
-            {/* Hydration & Split */}
-            <View className="p-5 rounded-3xl bg-[#121216] border border-white/[0.08] gap-3">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-[#71717A] text-xs">Daily Hydration Target</Text>
-                <Text className="text-white font-mono text-sm font-bold">
-                  {hydrationTarget} ml
-                </Text>
-              </View>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-[#71717A] text-xs">Chosen Routine Split</Text>
-                <Text className="text-white font-semibold text-xs">
-                  {splitPreference}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* CTA Button */}
-        <View className="mt-8">
-          {step < 5 ? (
-            <Pressable
-              onPress={handleNextStep}
-              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-              className="w-full py-4 rounded-full bg-white items-center justify-center flex-row"
-            >
-              <Text className="text-[#09090B] font-bold text-xs uppercase tracking-wider mr-1">
-                Continue
-              </Text>
-              <ChevronRight size={14} color="#09090B" />
-            </Pressable>
           ) : (
-            <Pressable
-              onPress={handleFinishOnboarding}
-              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-              className="w-full py-4 rounded-full bg-white items-center justify-center"
-            >
-              <Text className="text-[#09090B] font-bold text-xs uppercase tracking-wider">
-                Begin Yharnam Forge
-              </Text>
-            </Pressable>
+            <View className="gap-3">
+              <Pressable
+                onPress={handleCompleteSetup}
+                className="w-full py-4 rounded-full bg-[#DC2626] items-center justify-center"
+              >
+                <Text className="text-white font-bold text-xs uppercase tracking-wider">
+                  Complete Setup
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handlePrevStep}
+                className="w-full py-3 items-center justify-center"
+              >
+                <Text className="text-[#71717A] text-xs font-medium">
+                  Back to Schedule
+                </Text>
+              </Pressable>
+            </View>
           )}
         </View>
       </ScrollView>

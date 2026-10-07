@@ -1,22 +1,16 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import {
-  LayoutDashboard,
-  Dumbbell,
-  Utensils,
-  Droplets,
-  TrendingUp,
-} from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#71717A',
+        tabBarActiveTintColor: '#DC2626',
+        tabBarInactiveTintColor: '#52525B',
         tabBarStyle: {
-          backgroundColor: '#09090B',
+          backgroundColor: '#0A0A0C',
           borderTopColor: 'rgba(255, 255, 255, 0.08)',
           borderTopWidth: 1,
           height: 64,
@@ -24,9 +18,9 @@ export default function TabLayout() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 9.5,
+          fontSize: 10,
           fontWeight: '600',
-          letterSpacing: 0.6,
+          letterSpacing: 0.8,
           textTransform: 'uppercase',
         },
       }}
@@ -35,9 +29,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Command',
-          tabBarIcon: ({ color }) => (
-            <LayoutDashboard size={20} color={color} />
+          title: 'Deck',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'grid' : 'grid-outline'}
+              size={20}
+              color={color}
+            />
           ),
         }}
       />
@@ -46,9 +44,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="workout"
         options={{
-          title: 'Workout',
-          tabBarIcon: ({ color }) => (
-            <Dumbbell size={20} color={color} />
+          title: 'Train',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'barbell' : 'barbell-outline'}
+              size={21}
+              color={color}
+            />
           ),
         }}
       />
@@ -58,8 +60,12 @@ export default function TabLayout() {
         name="pantry"
         options={{
           title: 'Pantry',
-          tabBarIcon: ({ color }) => (
-            <Utensils size={20} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'restaurant' : 'restaurant-outline'}
+              size={20}
+              color={color}
+            />
           ),
         }}
       />
@@ -68,9 +74,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="recovery"
         options={{
-          title: 'Recovery',
-          tabBarIcon: ({ color }) => (
-            <Droplets size={20} color={color} />
+          title: 'Hydrate',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'water' : 'water-outline'}
+              size={21}
+              color={color}
+            />
           ),
         }}
       />
@@ -79,24 +89,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trajectory"
         options={{
-          title: 'Trajectory',
-          tabBarIcon: ({ color }) => (
-            <TrendingUp size={20} color={color} />
+          title: 'Target',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'trending-up' : 'trending-up-outline'}
+              size={21}
+              color={color}
+            />
           ),
-        }}
-      />
-
-      {/* Deprecated/Redirected routes hidden from tab bar */}
-      <Tabs.Screen
-        name="fridge"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="diet"
-        options={{
-          href: null,
         }}
       />
     </Tabs>
