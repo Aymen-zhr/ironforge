@@ -7,25 +7,26 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#DC2626',
-        tabBarInactiveTintColor: '#52525B',
+        tabBarActiveTintColor: '#FF5A1F',
+        tabBarInactiveTintColor: '#94A3B8',
         tabBarStyle: {
-          backgroundColor: '#0A0A0C',
-          borderTopColor: 'rgba(255, 255, 255, 0.08)',
+          backgroundColor: '#090A0D',
+          borderTopColor: 'rgba(255, 255, 255, 0.07)',
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 62,
+          paddingBottom: 6,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: '600',
-          letterSpacing: 0.8,
+          fontWeight: '700',
+          letterSpacing: 0.4,
           textTransform: 'uppercase',
+          marginTop: -2,
         },
       }}
     >
-      {/* 1. Dashboard */}
+      {/* 1. Command Deck */}
       <Tabs.Screen
         name="index"
         options={{
@@ -33,14 +34,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'grid' : 'grid-outline'}
-              size={20}
+              size={22}
               color={color}
             />
           ),
         }}
       />
 
-      {/* 2. Training & Rest Timer */}
+      {/* 2. Workout Forge */}
       <Tabs.Screen
         name="workout"
         options={{
@@ -48,52 +49,52 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'barbell' : 'barbell-outline'}
-              size={21}
+              size={23}
               color={color}
             />
           ),
         }}
       />
 
-      {/* 3. Text Pantry & Recipes */}
+      {/* 3. Kitchen & Pantry */}
       <Tabs.Screen
         name="pantry"
         options={{
-          title: 'Pantry',
+          title: 'Kitchen',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'restaurant' : 'restaurant-outline'}
-              size={20}
+              size={22}
               color={color}
             />
           ),
         }}
       />
 
-      {/* 4. Hydration & Weather */}
+      {/* 4. Recovery & Wellness */}
       <Tabs.Screen
         name="recovery"
         options={{
-          title: 'Hydrate',
+          title: 'Recovery',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'water' : 'water-outline'}
-              size={21}
+              name={focused ? 'pulse' : 'pulse-outline'}
+              size={22}
               color={color}
             />
           ),
         }}
       />
 
-      {/* 5. Weight & Monthly Target */}
+      {/* 5. Progress & 1RM Vault */}
       <Tabs.Screen
         name="trajectory"
         options={{
-          title: 'Target',
+          title: 'Progress',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'trending-up' : 'trending-up-outline'}
-              size={21}
+              size={22}
               color={color}
             />
           ),

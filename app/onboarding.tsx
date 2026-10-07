@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { calculateFullProfile, UserProfile } from '../services/userMetrics';
 
 const DAYS_OF_WEEK = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -27,7 +27,6 @@ const SPLIT_OPTIONS: { id: 'ppl' | 'upper_lower' | 'bro_split'; label: string; d
 ];
 
 export default function OnboardingScreen() {
-  const router = useRouter();
   const [step, setStep] = useState<number>(1);
 
   // Form states as requested

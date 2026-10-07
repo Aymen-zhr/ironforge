@@ -1,4 +1,5 @@
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { synthesizeMeals } from './mealAiProvider';
 
 export type IngredientCategory = 'Protein' | 'Carb' | 'Fat' | 'Produce' | 'Condiment';
 
@@ -305,19 +306,11 @@ Strictly return pure JSON with no markdown backticks.`,
 
 /**
  * Text-based Recipe Synthesis: The user lists ingredients directly without needing a camera.
- * Queries Gemini with the ingredients list to categorize items and synthesize 3 targeted gym recipes.
+ * Uses the resilient multi-provider culinary engine (Pollinations AI + Instant Athletic Chef).
  */
 export async function generateRecipesFromIngredients(
   ingredients: string[]
 ): Promise<FridgeAnalysisResult> {
-  const apiKey =
-    process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-    process.env.GEMINI_API_KEY;
-
-  if (!apiKey || apiKey.trim() === '') {
-    throw new Error('EXPO_PUBLIC_GEMINI_API_KEY is not defined in .env');
-  }
-
   const cleanList = ingredients
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
@@ -331,152 +324,29 @@ export async function generateRecipesFromIngredients(
     };
   }
 
-  const ingredientsStr = cleanList.join(', ');
-  let responseText = '';
-
   try {
-    const payload = {
-      contents: [
-        {
-          parts: [
-            {
-              text: `You are an elite sports nutritionist and gym-focused chef.
-The user has listed the following available ingredients in their fridge/pantry:
-"${ingredientsStr}"
+    const synthesis = await synthesizeMeals(cleanList, 'Hypertrophy');
+    
+    const validIngredients: DetectedIngredient[] = synthesis.detectedIngredients.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      category: (['Protein', 'Carb', 'Fat', 'Produce', 'Condiment'].includes(item.category)
+        ? item.category
+        : 'Protein') as IngredientCategory,
+    }));
 
-TASK:
-1. Categorize each ingredient into: "Protein" | "Carb" | "Fat" | "Produce" | "Condiment".
-2. Generate 3 distinct meals optimized for gym trainees (e.g., High-Protein Scramble, Lean Bowl, Anabolic Stir-Fry).
-3. Use ONLY the user's available ingredients (plus basic staples: salt, black pepper, water, cooking spray/olive oil).
-4. Calculate realistic estimated macros for each recipe: Calories, Protein (g), Carbs (g), and Fats (g).
-5. Provide concise, step-by-step cooking instructions (under 20 minutes prep).
-
-Strictly return pure JSON matching this schema:
-{
-  "isValidFridge": true,
-  "errorMessage": null,
-  "detectedIngredients": [
-    { "name": "Eggs", "quantity": "User listed", "category": "Protein" }
-  ],
-  "recipes": [
-    {
-      "title": "High-Protein Muscle Scramble",
-      "prepTime": "10 mins",
-      "macros": { "calories": 380, "protein": 32, "carbs": 6, "fats": 22 },
-      "usedIngredients": ["Eggs"],
-      "instructions": [
-        "Whisk eggs in a bowl with salt and pepper.",
-        "Scramble over medium heat until fluffy."
-      ]
-    }
-  ]
-}
-Strictly return pure JSON with no markdown backticks.`,
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
+    const validRecipes: SmartRecipe[] = synthesis.recipes.map((r) => ({
+      title: r.title,
+      prepTime: r.prepTime,
+      macros: {
+        calories: r.macros.calories,
+        protein: r.macros.protein,
+        carbs: r.macros.carbs,
+        fats: r.macros.fats,
       },
-    };
-
-    const candidateModels = [
-      'gemini-3.5-flash',
-      'gemini-flash-lite-latest',
-      'gemini-3.5-flash-lite',
-      'gemini-flash-latest',
-      'gemini-3.8-flash',
-    ];
-
-    let data: any = null;
-    let lastError: any = null;
-
-    for (const model of candidateModels) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (response.ok) {
-          data = await response.json();
-          break;
-        }
-
-        const errBody = await response.text();
-        responseText = errBody;
-
-        if (response.status === 503 || response.status === 429) {
-          lastError = new Error(`Gemini API model ${model} unavailable (HTTP ${response.status})`);
-          console.log(`[fridgeVision] Model ${model} is experiencing a transient demand spike, failing over...`);
-          continue;
-        }
-
-        console.warn(`[fridgeVision] Model ${model} returned HTTP ${response.status}: ${errBody}`);
-        throw new Error(`Gemini API error (HTTP ${response.status}): ${errBody}`);
-      } catch (reqErr) {
-        lastError = reqErr;
-      }
-    }
-
-    if (!data) {
-      console.error('[fridgeVision Error Details - Full Error]:', lastError);
-      return {
-        isValidFridge: true,
-        errorMessage: null,
-        detectedIngredients: cleanList.map((name) => ({
-          name,
-          quantity: 'User listed',
-          category: 'Protein',
-        })),
-        recipes: getFallbackFridgeAnalysis().recipes,
-      };
-    }
-
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    responseText = rawText;
-
-    if (!rawText) {
-      return getFallbackFridgeAnalysis();
-    }
-
-    const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsedResult: any = JSON.parse(cleanedText);
-
-    const validIngredients: DetectedIngredient[] = Array.isArray(parsedResult.detectedIngredients)
-      ? parsedResult.detectedIngredients.map((item: any) => ({
-          name: String(item.name || 'Ingredient').trim(),
-          quantity: String(item.quantity || 'User listed').trim(),
-          category: (['Protein', 'Carb', 'Fat', 'Produce', 'Condiment'].includes(item.category)
-            ? item.category
-            : 'Protein') as IngredientCategory,
-        }))
-      : cleanList.map((name) => ({ name, quantity: 'User listed', category: 'Protein' }));
-
-    const validRecipes: SmartRecipe[] = Array.isArray(parsedResult.recipes)
-      ? parsedResult.recipes.map((r: any) => ({
-          title: String(r.title || 'Gym Meal').trim(),
-          prepTime: String(r.prepTime || '12 mins').trim(),
-          macros: {
-            calories: Number(r.macros?.calories ?? 400),
-            protein: Number(r.macros?.protein ?? 30),
-            carbs: Number(r.macros?.carbs ?? 30),
-            fats: Number(r.macros?.fats ?? 10),
-          },
-          usedIngredients: Array.isArray(r.usedIngredients)
-            ? r.usedIngredients.map((ing: any) => String(ing).trim())
-            : [],
-          instructions: Array.isArray(r.instructions)
-            ? r.instructions.map((ins: any) => String(ins).trim())
-            : [],
-        }))
-      : [];
+      usedIngredients: r.usedIngredients,
+      instructions: r.instructions,
+    }));
 
     return {
       isValidFridge: true,
@@ -485,17 +355,8 @@ Strictly return pure JSON with no markdown backticks.`,
       recipes: validRecipes,
     };
   } catch (error) {
-    console.error('[fridgeVision Error Details - Full Error]:', error);
-    return {
-      isValidFridge: true,
-      errorMessage: null,
-      detectedIngredients: cleanList.map((name) => ({
-        name,
-        quantity: 'User listed',
-        category: 'Protein',
-      })),
-      recipes: getFallbackFridgeAnalysis().recipes,
-    };
+    console.warn('[fridgeVision] Error in generateRecipesFromIngredients fallback:', error);
+    return getFallbackFridgeAnalysis();
   }
 }
 

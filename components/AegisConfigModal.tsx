@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import {
   UserProfile,
   calculateFullProfile,
@@ -23,6 +23,7 @@ import {
   inchesToCm,
 } from '../services/userMetrics';
 import { updateDailyTargets, clearDailyMeals } from '../services/dietService';
+import { aegisState } from '../services/useAegisStore';
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -93,8 +94,6 @@ export default function AegisConfigModal({
   onProfileUpdated,
   onMealsCleared,
 }: AegisConfigModalProps) {
-  const router = useRouter();
-
   // Active form states
   const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
   const [weightInput, setWeightInput] = useState<string>('75');
@@ -303,6 +302,15 @@ export default function AegisConfigModal({
         goal: goal === 'cut' ? 'Aggressive Cut' : goal === 'bulk' ? 'Lean Bulk' : 'Recomposition',
         targetKgPerMonth: updatedProfile.monthlyKgTarget,
         targetWaterMl: updatedProfile.dailyWaterMl,
+      });
+
+      // Synchronize reactive state store
+      aegisState.setNutritionTargets({
+        calories: updatedProfile.targetCalories,
+        protein: updatedProfile.targetProteinG,
+        carbs: updatedProfile.targetCarbsG,
+        fats: updatedProfile.targetFatsG,
+        water: updatedProfile.dailyWaterMl,
       });
 
       onProfileUpdated(updatedProfile);

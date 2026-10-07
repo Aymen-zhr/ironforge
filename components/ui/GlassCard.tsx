@@ -19,18 +19,20 @@ export const GlassCard: React.FC<GlassCardProps> = ({
 }) => {
   const getVariantClasses = () => {
     switch (variant) {
-      case 'blood-glow':
-      case 'glow':
       case 'highlighted':
-        return 'bg-[#0D0D11]/90 border-red-600/30 shadow-lg shadow-red-600/10 rounded-xl p-4';
+      case 'glow':
+        return 'bg-[#1A1B24] border-[#FF5A1F]/30 shadow-lg shadow-[#FF5A1F]/10 rounded-3xl p-5';
       case 'cyan-glow':
-        return 'bg-[#0D0D11]/90 border-cyan-500/30 shadow-lg shadow-cyan-500/10 rounded-xl p-4';
+        return 'bg-[#1A1B24] border-cyan-500/20 shadow-lg shadow-cyan-500/10 rounded-3xl p-5';
+      case 'blood-glow':
+        return 'bg-[#1A1B24] border-rose-500/20 shadow-lg shadow-rose-500/10 rounded-3xl p-5';
       case 'bento':
-        return 'bg-[#0D0D11]/90 border-white/[0.07] rounded-xl p-5';
+        return 'bg-[#17181F] border-white/[0.06] rounded-3xl p-5';
       case 'elevated':
+        return 'bg-[#1E2029] border-white/[0.07] rounded-3xl p-5';
       case 'default':
       default:
-        return 'bg-[#0D0D11]/90 border-white/[0.07] rounded-xl p-4';
+        return 'bg-[#17181F] border-white/[0.06] rounded-3xl p-5';
     }
   };
 

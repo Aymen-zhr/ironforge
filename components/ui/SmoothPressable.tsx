@@ -13,7 +13,7 @@ interface SmoothPressableProps extends PressableProps {
 export default function SmoothPressable({
   children,
   style,
-  scaleTo,
+  scaleTo = 0.97,
   enableHaptics = true,
   onPress,
   className = '',
@@ -34,7 +34,10 @@ export default function SmoothPressable({
     <Pressable
       onPress={handlePress}
       style={({ pressed }) => [
-        { opacity: pressed ? 0.75 : 1 },
+        {
+          opacity: pressed ? 0.88 : 1,
+          transform: [{ scale: pressed ? scaleTo : 1 }],
+        },
         typeof style === 'function' ? (style as any)({ pressed }) : style,
       ]}
       className={className}

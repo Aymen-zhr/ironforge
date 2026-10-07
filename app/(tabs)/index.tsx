@@ -4,44 +4,57 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Image,
   Modal,
   TextInput,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { UserProfile } from '../../services/userMetrics';
-import { getDailyLog, addMealToDailyLog, DietLogData } from '../../services/dietService';
+import { UserProfile, getUserProfile } from '../../services/userMetrics';
 import {
   getScheduledWorkoutForDay,
   TrainingProgram,
 } from '../../data/workoutCatalog';
+import { useAegisStore, aegisState } from '../../services/useAegisStore';
 import AegisConfigModal from '../../components/AegisConfigModal';
 import AegisLogbookModal from '../../components/AegisLogbookModal';
+import MacroRingGauge from '../../components/ui/MacroRingGauge';
+import CalendarTracker from '../../components/ui/CalendarTracker';
+import PhotoCard from '../../components/ui/PhotoCard';
+import CircularDial from '../../components/ui/CircularDial';
 
 const DAY_ABBRS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function CommandDeckScreen() {
-  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [dietLog, setDietLog] = useState<DietLogData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const aegis = useAegisStore();
 
-  // Aegis Protocol Configuration Modal State
+  // Modals
   const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
-
-  // Historical Logbook & PR Vault Modal State
   const [showLogbookModal, setShowLogbookModal] = useState<boolean>(false);
-
-  // Quick Macro Logging Modal State
   const [showQuickAddModal, setShowQuickAddModal] = useState<boolean>(false);
+
+  // Quick Macro Form
   const [quickMealName, setQuickMealName] = useState<string>('');
   const [quickCalories, setQuickCalories] = useState<string>('');
   const [quickProtein, setQuickProtein] = useState<string>('');
+
+  // Daily Athlete Checklist
+  const [checkedTasks, setCheckedTasks] = useState<{ [key: string]: boolean }>({
+    hydration: true,
+    fuel: false,
+    workout: false,
+    recovery: false,
+  });
+
+  const toggleTask = (key: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    setCheckedTasks((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
     try {
@@ -49,7 +62,7 @@ export default function CommandDeckScreen() {
     } catch {}
   };
 
-  const handleCommitQuickMeal = async () => {
+  const handleCommitQuickMeal = () => {
     const cals = parseInt(quickCalories, 10);
     const prot = parseInt(quickProtein, 10);
     if (!cals || isNaN(cals) || cals < 10 || cals > 5000) {
@@ -57,382 +70,454 @@ export default function CommandDeckScreen() {
       return;
     }
     const safeProtein = Math.min(300, Math.max(0, isNaN(prot) ? 0 : prot));
-    const name = quickMealName.trim() || 'Quick Macro Intake';
+    const name = quickMealName.trim() || 'Quick Meal';
 
     triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    aegisState.logMeal({
+      name,
+      calories: cals,
+      protein: safeProtein,
+      carbs: Math.max(0, Math.round((cals - safeProtein * 4) / 8)),
+      fats: Math.max(0, Math.round((cals - safeProtein * 4) / 18)),
+      source: 'quick-log',
+    });
+
+    setShowQuickAddModal(false);
+    setQuickMealName('');
+    setQuickCalories('');
+    setQuickProtein('');
     try {
-      const updated = await addMealToDailyLog({
-        name,
-        calories: cals,
-        protein_grams: safeProtein,
-        carbs_grams: Math.round(Math.max(0, (cals - (safeProtein * 4 + 10 * 9)) / 4)),
-        fats_grams: 10,
-        source: 'Manual',
-      });
-      setDietLog(updated);
-      setShowQuickAddModal(false);
-      setQuickMealName('');
-      setQuickCalories('');
-      setQuickProtein('');
-    } catch (err) {
-      console.warn('[QuickAdd] Error logging meal:', err);
-    }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+  };
+
+  const handleInstantPresetLog = (name: string, cals: number, protein: number) => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    aegisState.logMeal({
+      name,
+      calories: cals,
+      protein,
+      carbs: Math.max(0, Math.round((cals - protein * 4) / 8)),
+      fats: Math.max(0, Math.round((cals - protein * 4) / 18)),
+      source: 'quick-log',
+    });
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+  };
+
+  const handleQuickLogWater = (amountMl: number) => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    aegisState.logWater(amountMl);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
   };
 
   useEffect(() => {
-    async function loadData() {
+    async function loadProfile() {
       try {
-        const rawProfile = await AsyncStorage.getItem('@ironforge_user_profile');
-        if (rawProfile) {
-          const parsed: UserProfile = JSON.parse(rawProfile);
-          setProfile(parsed);
-        } else {
-          // Graceful fallback baseline or direct to onboarding if preferred
-          setProfile({
-            heightCm: 178,
-            weightKg: 75,
-            age: 22,
-            sex: 'male',
-            goal: 'cut',
-            monthlyKgTarget: 2.0,
-            trainingDaysPerWeek: 4,
-            trainingDays: ['Mon', 'Tue', 'Thu', 'Fri'],
-            splitPreference: 'ppl',
-            bmr: 1720,
-            tdee: 2500,
-            targetCalories: 1987,
-            targetProteinG: 165,
-            targetCarbsG: 190,
-            targetFatsG: 67,
-            dailyWaterMl: 3125,
-          });
-        }
-
-        const log = await getDailyLog();
-        setDietLog(log);
+        const stored = await getUserProfile();
+        if (stored) setProfile(stored);
       } catch (err) {
-        console.warn('[CommandDeck] Failed loading data:', err);
-      } finally {
-        setLoading(false);
+        console.warn('[CommandDeck] Error reading profile:', err);
       }
     }
-
-    loadData();
+    loadProfile();
   }, []);
 
   const now = new Date();
   const currentDayIndex = now.getDay();
-  const currentDayKey = DAY_ABBRS[currentDayIndex]; // e.g. "Mon"
-  const formattedDate = now
-    .toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-    })
-    .toUpperCase();
+  const currentDayKey = DAY_ABBRS[currentDayIndex];
+  const formattedDate = now.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 
-  // Dynamic Day Checker: Verify if today is an active training day
-  const isTrainingDay = profile?.trainingDays
-    ? profile.trainingDays.some(
-        (day) => day.toLowerCase().slice(0, 3) === currentDayKey.toLowerCase()
-      )
-    : true;
+  const activeDays = profile?.trainingDays || ['Mon', 'Tue', 'Thu', 'Fri'];
+  const isTrainingDay = activeDays.includes(currentDayKey);
+  const scheduledProgram: TrainingProgram | null = profile
+    ? getScheduledWorkoutForDay(profile.splitPreference, activeDays, currentDayKey)
+    : null;
 
-  // Retrieve programmed split for today
-  const scheduledProgram: TrainingProgram | null =
-    profile && isTrainingDay
-      ? getScheduledWorkoutForDay(
-          profile.splitPreference,
-          profile.trainingDays,
-          currentDayKey
-        )
-      : null;
+  // Metabolic values from reactive store
+  const targetCalories = aegis.targetCalories || 2600;
+  const targetProtein = aegis.targetProtein || 180;
+  const targetWaterMl = aegis.targetWaterMl || 3500;
 
-  // Formatting goal badge text
-  const goalTitle =
-    profile?.goal === 'bulk'
-      ? 'LEAN BULK'
-      : profile?.goal === 'recomp'
-      ? 'RECOMPOSITION'
-      : 'AGGRESSIVE CUT';
+  const consumedCalories = aegis.consumedCalories || 0;
+  const consumedProtein = aegis.consumedProtein || 0;
+  const consumedWaterMl = aegis.consumedWaterMl || 0;
 
-  const deltaSign =
-    profile?.goal === 'bulk' ? '+' : profile?.goal === 'recomp' ? '±' : '-';
-  const isImperial = profile?.unitSystem === 'imperial';
-  const paceVal = profile?.monthlyKgTarget ?? 2.0;
-  const targetDeltaDisplay = isImperial
-    ? `${(Math.round(paceVal * 2.20462 * 10) / 10).toFixed(1)} LBS/MO`
-    : `${paceVal.toFixed(1)} KG/MO`;
-  const goalBadge = `${goalTitle} • ${deltaSign}${targetDeltaDisplay}`;
+  const calPercent = Math.min(100, Math.round((consumedCalories / Math.max(1, targetCalories)) * 100));
+  const proteinPercent = Math.min(100, Math.round((consumedProtein / Math.max(1, targetProtein)) * 100));
+  const waterPercent = Math.min(100, Math.round((consumedWaterMl / Math.max(1, targetWaterMl)) * 100));
 
-  // Telemetry metrics with strict boundary checks
-  const targetCalories = Math.max(1000, profile?.targetCalories ?? 2200);
-  const consumedCalories = Math.max(0, dietLog?.consumedCalories ?? 0);
-  const remainingCalories = targetCalories - consumedCalories;
-  const isOverCalorieBudget = remainingCalories < 0;
-  const calPercent = Math.min(
-    100,
-    Math.max(0, Math.round((consumedCalories / targetCalories) * 100))
-  );
-
-  const targetProtein = Math.max(50, profile?.targetProteinG ?? 160);
-  const consumedProtein = Math.max(0, dietLog?.consumedProtein ?? 0);
-  const proteinPercent = Math.min(
-    100,
-    Math.max(0, Math.round((consumedProtein / targetProtein) * 100))
-  );
-
-  const targetWater = Math.min(6000, Math.max(1500, profile?.dailyWaterMl ?? 3200));
+  // Dynamic CNS Status
+  const cnsScore = aegis.cnsReadinessPct;
+  const cnsColor =
+    cnsScore >= 85 ? '#10E760' : cnsScore >= 70 ? '#00D2FF' : cnsScore >= 50 ? '#FF9F0A' : '#FF3B30';
+  const cnsLabel =
+    cnsScore >= 85 ? 'OPTIMAL' : cnsScore >= 70 ? 'RESTORING' : cnsScore >= 50 ? 'STRAINED' : 'DEPLETED';
 
   return (
-    <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#08090C]" edges={['top', 'left', 'right']}>
+      {/* 1. Sleek Minimalist Header */}
+      <View className="px-6 py-4 border-b border-white/[0.05] flex-row items-center justify-between bg-[#0B0C10]">
+        <View>
+          <Text className="text-white text-xl font-black tracking-widest uppercase">
+            IRONFORGE
+          </Text>
+          <Text className="text-[#71717A] text-[11px] font-mono tracking-wider uppercase mt-0.5">
+            {formattedDate} • {profile?.goal ? profile.goal.toUpperCase() : 'BUILD'}
+          </Text>
+        </View>
+
+        <View className="flex-row items-center gap-2.5">
+          <Pressable
+            onPress={() => {
+              triggerHaptic();
+              setShowLogbookModal(true);
+            }}
+            className="w-10 h-10 rounded-2xl bg-[#14151C] border border-white/[0.06] items-center justify-center active:opacity-75"
+          >
+            <Ionicons name="trophy-outline" size={17} color="#F8FAFC" />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              triggerHaptic();
+              setShowConfigModal(true);
+            }}
+            className="w-10 h-10 rounded-2xl bg-[#14151C] border border-white/[0.06] items-center justify-center active:opacity-75"
+          >
+            <Ionicons name="settings-outline" size={17} color="#F8FAFC" />
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 24, gap: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 110 }}
         className="flex-1"
       >
-        {/* 1. Minimalist Header */}
-        <View className="gap-2">
-          {/* Top Row: Concept 1 Logo + Tracked Title + Subtle Live Dot */}
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2.5">
-              <Image
-                source={require('../../assets/generated/logo.jpg')}
-                className="w-6 h-6 rounded-md"
-                resizeMode="cover"
-              />
-              <Text className="text-white text-xs font-bold tracking-[3.5px] uppercase">
-                AEGIS
-              </Text>
-              <View className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
+        {/* Active Session Sticky Banner (If Active) */}
+        {aegis.activeSession.isActive && (
+          <Pressable
+            onPress={() => {
+              triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+              router.push('/workout');
+            }}
+            className="bg-[#FF5A1F]/15 border border-[#FF5A1F]/30 rounded-3xl p-4 mb-5 flex-row items-center justify-between active:opacity-85 shadow-lg shadow-[#FF5A1F]/10"
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="w-2.5 h-2.5 rounded-full bg-[#FF5A1F]" />
+              <View>
+                <Text className="text-white text-xs font-bold uppercase tracking-wider">
+                  Live Session Active
+                </Text>
+                <Text className="text-[#A1A1AA] text-xs mt-0.5">
+                  {aegis.activeSession.splitName} • {aegis.activeSession.completedSetsCount} sets completed
+                </Text>
+              </View>
             </View>
+            <View className="py-2 px-3.5 rounded-2xl bg-[#FF5A1F] flex-row items-center gap-1.5">
+              <Text className="text-black text-xs font-bold uppercase tracking-wider">Resume</Text>
+              <Ionicons name="arrow-forward" size={13} color="#000000" />
+            </View>
+          </Pressable>
+        )}
 
-            <Pressable
-              onPress={() => {
-                triggerHaptic();
-                setShowConfigModal(true);
+        {/* 2. Whoop-Style Daily Readiness & Strain Widget */}
+        <View className="bg-[#12131A] border border-white/[0.05] rounded-3xl p-5 mb-5 shadow-xl">
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center gap-2">
+              <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cnsColor }} />
+              <Text className="text-white text-xs font-bold uppercase tracking-wider">
+                Daily Readiness
+              </Text>
+            </View>
+            <View
+              className="py-1 px-3 rounded-full border"
+              style={{
+                backgroundColor: `${cnsColor}15`,
+                borderColor: `${cnsColor}30`,
               }}
-              className="py-1 px-2.5 rounded-full bg-white/[0.05] border border-white/[0.08] active:opacity-70"
             >
-              <Text className="text-[#71717A] text-[10px] font-semibold tracking-wider uppercase">
-                CONFIG
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Subtitle: Date & Goal Badge */}
-          <View className="flex-row items-center justify-between mt-1">
-            <Text className="text-[#71717A] text-xs font-medium tracking-wide">
-              {formattedDate}
-            </Text>
-            <View className="py-1 px-2.5 rounded-md bg-white/[0.04] border border-white/[0.06]">
-              <Text className="text-[#A1A1AA] text-[10px] font-mono tracking-wider">
-                {goalBadge}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 2. Today's Session Hero Card */}
-        <View className="bg-[#121215] border border-white/10 rounded-2xl p-5 gap-4">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[#71717A] text-[11px] font-mono uppercase tracking-[2px]">
-              {isTrainingDay ? 'TODAY’S FOCUS' : 'RECOVERY PROTOCOL'}
-            </Text>
-            <View className="py-0.5 px-2 rounded-full bg-white/[0.05]">
-              <Text className="text-white text-[10px] font-mono">
-                {currentDayKey.toUpperCase()}
+              <Text className="text-xs font-bold" style={{ color: cnsColor }}>
+                {cnsLabel}
               </Text>
             </View>
           </View>
 
-          {isTrainingDay ? (
-            <>
-              <View className="gap-1.5">
-                <Text className="text-white text-xl font-bold tracking-tight">
-                  {scheduledProgram?.splitName.toUpperCase() ?? 'PUSH DAY'}
+          <View className="flex-row items-center justify-between py-2">
+            {/* Circular Whoop Dial */}
+            <View className="items-center justify-center">
+              <CircularDial
+                size={130}
+                strokeWidth={11}
+                progress={cnsScore}
+                color={cnsColor}
+                valueText={`${cnsScore}%`}
+                labelText="PRIME"
+              />
+            </View>
+
+            {/* Pillar Metrics */}
+            <View className="flex-1 pl-6 gap-3">
+              <View>
+                <Text className="text-[#71717A] text-[10px] font-bold uppercase tracking-wider">
+                  Today's Strain Target
                 </Text>
-                <Text className="text-[#71717A] text-xs leading-5">
-                  {scheduledProgram?.subtitle ?? 'Anterior Chain Hypertrophy // Chest, Delts & Triceps Overload'}
+                <Text className="text-white text-xl font-black mt-0.5">
+                  14.5 <Text className="text-[#71717A] text-xs font-bold font-mono">/ 21.0</Text>
                 </Text>
               </View>
 
-              <Pressable
-                onPress={() => {
-                  triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
-                  router.push('/workout');
-                }}
-                className="bg-[#DC2626] py-3 rounded-xl items-center justify-center active:opacity-85 shadow-sm"
-              >
-                <Text className="text-white text-xs font-bold uppercase tracking-wider">
-                  Start Session
+              <View>
+                <Text className="text-[#71717A] text-[10px] font-bold uppercase tracking-wider">
+                  Sleep Recovery
                 </Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <View className="gap-1.5">
-                <Text className="text-white text-xl font-bold tracking-tight">
-                  ACTIVE RECOVERY // Mobilize & Rest
-                </Text>
-                <Text className="text-[#71717A] text-xs leading-5">
-                  Prioritize 8+ hours of sleep, light joint mobility, and sustained protein synthesis to prepare for tomorrow’s strain.
+                <Text className="text-white text-xl font-black mt-0.5">
+                  {aegis.sleepHours}h <Text className="text-[#10B981] text-xs font-bold">Optimal</Text>
                 </Text>
               </View>
 
-              <Pressable
-                onPress={() => {
-                  triggerHaptic();
-                  router.push('/recovery');
-                }}
-                className="bg-white/[0.08] border border-white/[0.1] py-3 rounded-xl items-center justify-center active:opacity-85"
-              >
-                <Text className="text-white text-xs font-bold uppercase tracking-wider">
-                  View Recovery Metrics
+              <View>
+                <Text className="text-[#71717A] text-[10px] font-bold uppercase tracking-wider">
+                  Hydration Level
                 </Text>
-              </Pressable>
-            </>
-          )}
+                <Text className="text-white text-xl font-black mt-0.5">
+                  {(consumedWaterMl / 1000).toFixed(1)}L <Text className="text-[#71717A] text-xs font-bold">of {(targetWaterMl / 1000).toFixed(1)}L</Text>
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
-        {/* 3. Telemetry Row: Calories & Protein */}
-        <View className="bg-[#121215] border border-white/10 rounded-2xl p-5 gap-4">
+        {/* 3. Today's Scheduled Session Photographic Hero */}
+        <PhotoCard
+          imageSource={require('../../assets/generated/workout_hero.jpg')}
+          tag={isTrainingDay ? "TODAY'S WORKOUT" : "ACTIVE RECOVERY"}
+          tagColor="#FF5A1F"
+          title={scheduledProgram?.splitName ?? 'Chest & Triceps Hypertrophy'}
+          subtitle={scheduledProgram?.subtitle ?? 'Focused mechanical tension and clean muscle contraction.'}
+          meta={[
+            { icon: 'barbell-outline', text: '5 Exercises' },
+            { icon: 'time-outline', text: '~50 Mins' },
+            { icon: 'flame-outline', text: 'RPE 8.5' },
+          ]}
+          actionLabel={aegis.activeSession.isActive ? 'Resume Workout' : 'Start Workout'}
+          onActionPress={() => {
+            triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+            if (!aegis.activeSession.isActive) {
+              aegisState.startWorkoutSession(scheduledProgram?.splitName || 'Chest Hypertrophy');
+            }
+            router.push('/workout');
+          }}
+          className="mb-5"
+        />
+
+        {/* 4. Interactive Activity Calendar & Streak Matrix */}
+        <CalendarTracker initialMode="week" className="mb-5" />
+
+        {/* 5. Daily Nutrition & Fuel */}
+        <View className="bg-[#12131A] border border-white/[0.05] rounded-3xl p-5 mb-5 gap-4 shadow-xl">
           <View className="flex-row items-center justify-between">
-            <Text className="text-[#71717A] text-[11px] font-mono uppercase tracking-[2px]">
-              METABOLIC TELEMETRY
-            </Text>
+            <View>
+              <Text className="text-white text-base font-bold tracking-tight">
+                Daily Nutrition
+              </Text>
+              <Text className="text-[#71717A] text-xs mt-0.5">
+                Target: {targetCalories} kcal • {targetProtein}g Protein
+              </Text>
+            </View>
             <Pressable
               onPress={() => {
                 triggerHaptic();
                 setShowQuickAddModal(true);
               }}
-              className="py-1 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] active:opacity-75"
+              className="py-1.5 px-3.5 rounded-full bg-[#FF5A1F]/15 border border-[#FF5A1F]/30 active:opacity-75"
             >
-              <Text className="text-white text-[10px] font-mono font-bold tracking-wider uppercase">
-                + LOG FUEL
+              <Text className="text-[#FF5A1F] text-xs font-bold">
+                + Log Meal
               </Text>
             </Pressable>
           </View>
 
-          {/* Calories Meter */}
-          <View className="gap-2">
-            <View className="flex-row items-baseline justify-between">
-              <Text className="text-white text-xs font-medium uppercase tracking-wider">
-                Calories
-              </Text>
-              <Text className="text-[#A1A1AA] text-xs font-mono">
-                {isOverCalorieBudget ? (
-                  <Text className="text-[#DC2626] font-bold">
-                    +{Math.abs(remainingCalories)} kcal over budget
-                  </Text>
-                ) : (
-                  <>
-                    <Text className="text-white font-bold">{remainingCalories}</Text> remaining / {targetCalories} kcal
-                  </>
-                )}
-              </Text>
-            </View>
-            <View className="h-2 w-full bg-white/[0.06] rounded-full overflow-hidden">
-              <View
-                style={{ width: `${Math.min(100, Math.max(2, calPercent))}%` }}
-                className={`h-full rounded-full ${
-                  isOverCalorieBudget ? 'bg-[#DC2626]' : 'bg-white'
-                }`}
-              />
+          <View className="flex-row items-center justify-between py-1">
+            <MacroRingGauge
+              size={135}
+              caloriesCurrent={consumedCalories}
+              caloriesTarget={targetCalories}
+              proteinCurrent={consumedProtein}
+              proteinTarget={targetProtein}
+              waterCurrentMl={consumedWaterMl}
+              waterTargetMl={targetWaterMl}
+            />
+
+            <View className="flex-1 pl-5 gap-3">
+              {/* Calories */}
+              <View>
+                <View className="flex-row items-center gap-1.5 mb-0.5">
+                  <View className="w-2 h-2 rounded-full bg-white" />
+                  <Text className="text-[#71717A] text-xs font-medium">Calories</Text>
+                </View>
+                <Text className="text-white text-sm font-bold">
+                  {consumedCalories} <Text className="text-[#52525B] text-xs">/ {targetCalories} kcal</Text>
+                </Text>
+              </View>
+
+              {/* Protein */}
+              <View>
+                <View className="flex-row items-center gap-1.5 mb-0.5">
+                  <View className="w-2 h-2 rounded-full bg-[#FF5A1F]" />
+                  <Text className="text-[#71717A] text-xs font-medium">Protein</Text>
+                </View>
+                <Text className="text-[#FF5A1F] text-sm font-bold">
+                  {consumedProtein}g <Text className="text-[#52525B] text-xs">/ {targetProtein}g ({proteinPercent}%)</Text>
+                </Text>
+              </View>
+
+              {/* Water */}
+              <View>
+                <View className="flex-row items-center gap-1.5 mb-0.5">
+                  <View className="w-2 h-2 rounded-full bg-[#38BDF8]" />
+                  <Text className="text-[#71717A] text-xs font-medium">Water</Text>
+                </View>
+                <Text className="text-[#38BDF8] text-sm font-bold">
+                  {(consumedWaterMl / 1000).toFixed(1)}L <Text className="text-[#52525B] text-xs">/ {(targetWaterMl / 1000).toFixed(1)}L</Text>
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* Protein Meter */}
-          <View className="gap-2">
-            <View className="flex-row items-baseline justify-between">
-              <Text className="text-white text-xs font-medium uppercase tracking-wider">
-                Protein
-              </Text>
-              <Text className="text-[#A1A1AA] text-xs font-mono">
-                <Text className="text-white font-bold">{consumedProtein}g</Text> / {targetProtein}g
-              </Text>
-            </View>
-            <View className="h-2 w-full bg-white/[0.06] rounded-full overflow-hidden">
-              <View
-                style={{ width: `${Math.min(100, Math.max(2, proteinPercent))}%` }}
-                className="h-full bg-[#DC2626] rounded-full"
-              />
-            </View>
+          {/* Quick-Log Actions Bar */}
+          <View className="pt-3 border-t border-white/[0.05] flex-row gap-2">
+            <Pressable
+              onPress={() => handleInstantPresetLog('Whey Isolate', 140, 30)}
+              className="flex-1 py-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.05] items-center active:opacity-75"
+            >
+              <Text className="text-white text-xs font-semibold">+30g Whey</Text>
+              <Text className="text-[#71717A] text-[10px] mt-0.5">140 kcal</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => handleInstantPresetLog('High-Protein Meal', 550, 45)}
+              className="flex-1 py-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.05] items-center active:opacity-75"
+            >
+              <Text className="text-white text-xs font-semibold">+45g Meal</Text>
+              <Text className="text-[#71717A] text-[10px] mt-0.5">550 kcal</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => handleQuickLogWater(500)}
+              className="flex-1 py-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.05] items-center active:opacity-75"
+            >
+              <Text className="text-[#38BDF8] text-xs font-semibold">+500ml H₂O</Text>
+              <Text className="text-[#71717A] text-[10px] mt-0.5">Hydration</Text>
+            </Pressable>
           </View>
         </View>
 
-        {/* 4. Quick Portals (2 Columns) */}
-        <View className="flex-row gap-3.5">
-          {/* Card 1: Pantry & Meals */}
-          <Pressable
-            onPress={() => {
-              triggerHaptic();
-              router.push('/pantry');
-            }}
-            className="flex-1 bg-[#121215] border border-white/10 rounded-2xl p-4 gap-3 active:opacity-80"
-          >
-            <View className="w-8 h-8 rounded-xl bg-white/[0.06] items-center justify-center">
-              <Ionicons name="restaurant-outline" size={17} color="#FFFFFF" />
-            </View>
-            <View>
-              <Text className="text-white text-xs font-bold uppercase tracking-wider">
-                PANTRY & MEALS
-              </Text>
-              <Text className="text-[#71717A] text-[11px] mt-0.5">
-                Macro Kitchen
-              </Text>
-            </View>
-          </Pressable>
-
-          {/* Card 2: Hydration & Weather */}
-          <Pressable
-            onPress={() => {
-              triggerHaptic();
-              router.push('/recovery');
-            }}
-            className="flex-1 bg-[#121215] border border-white/10 rounded-2xl p-4 gap-3 active:opacity-80"
-          >
-            <View className="w-8 h-8 rounded-xl bg-white/[0.06] items-center justify-center">
-              <Ionicons name="water-outline" size={17} color="#DC2626" />
-            </View>
-            <View>
-              <Text className="text-white text-xs font-bold uppercase tracking-wider">
-                HYDRATION
-              </Text>
-              <Text className="text-[#71717A] text-[11px] font-mono mt-0.5">
-                {targetWater} mL Target
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-
-        {/* 5. Historical Logbook & PR Vault Portal */}
-        <Pressable
-          onPress={() => {
-            triggerHaptic();
-            setShowLogbookModal(true);
-          }}
-          className="bg-[#121215] border border-white/10 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80"
-        >
-          <View className="flex-row items-center gap-3">
-            <View className="w-9 h-9 rounded-xl bg-[#DC2626]/10 border border-[#DC2626]/20 items-center justify-center">
-              <Ionicons name="trophy-outline" size={17} color="#DC2626" />
-            </View>
-            <View>
-              <Text className="text-white text-xs font-bold uppercase tracking-wider">
-                LOGBOOK & PR VAULT
-              </Text>
-              <Text className="text-[#71717A] text-[11px] mt-0.5">
-                Session volume & 1RM trophy archive
-              </Text>
-            </View>
-          </View>
-          <View className="py-1 px-2.5 rounded-full bg-white/[0.05] border border-white/[0.08]">
-            <Text className="text-[#A1A1AA] text-[10px] font-mono uppercase">
-              ARCHIVE →
+        {/* 6. Daily Habits */}
+        <View className="bg-[#12131A] border border-white/[0.05] rounded-3xl p-5 mb-5 gap-3 shadow-xl">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-white text-base font-bold tracking-tight">
+              Daily Habits
+            </Text>
+            <Text className="text-[#71717A] text-xs font-medium">
+              {Object.values(checkedTasks).filter(Boolean).length} of 4 Completed
             </Text>
           </View>
-        </Pressable>
+
+          <View className="gap-2.5 pt-1">
+            {[
+              { key: 'hydration', label: 'Hit 3.5L Daily Hydration', sub: 'Electrolytes & fluid balance' },
+              { key: 'fuel', label: 'Reach 180g Protein Target', sub: 'Muscle protein synthesis & repair' },
+              { key: 'workout', label: 'Complete Daily Workout', sub: 'Consistent training load' },
+              { key: 'recovery', label: 'Prioritize 8h Restorative Sleep', sub: 'Recovery & hormone replenishment' },
+            ].map((task) => {
+              const isChecked = !!checkedTasks[task.key];
+              return (
+                <Pressable
+                  key={task.key}
+                  onPress={() => toggleTask(task.key)}
+                  className={`p-3.5 rounded-2xl border flex-row items-center justify-between ${
+                    isChecked
+                      ? 'bg-[#FF5A1F]/10 border-[#FF5A1F]/30'
+                      : 'bg-[#181922] border-white/[0.04]'
+                  }`}
+                >
+                  <View className="flex-1 pr-3">
+                    <Text
+                      className={`text-xs font-semibold ${isChecked ? 'text-white line-through opacity-75' : 'text-slate-200'}`}
+                    >
+                      {task.label}
+                    </Text>
+                    <Text className="text-[#71717A] text-[11px] mt-0.5">
+                      {task.sub}
+                    </Text>
+                  </View>
+                  <View
+                    className={`w-6 h-6 rounded-lg items-center justify-center border ${
+                      isChecked ? 'bg-[#FF5A1F] border-[#FF5A1F]' : 'border-white/20 bg-transparent'
+                    }`}
+                  >
+                    {isChecked && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 5. Weekly Consistency & Streak Tracker */}
+        <View className="bg-[#17181F] border border-white/[0.06] rounded-3xl p-5 mb-5">
+          <View className="flex-row items-center justify-between mb-3.5">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-white text-base font-bold tracking-tight">
+                Weekly Schedule
+              </Text>
+              <View className="py-0.5 px-2.5 rounded-full bg-[#FF5A1F]/15 border border-[#FF5A1F]/30">
+                <Text className="text-[#FF5A1F] text-[10px] font-bold">
+                  {aegis.currentStreakDays} DAY STREAK
+                </Text>
+              </View>
+            </View>
+            <Text className="text-slate-400 text-xs font-medium">
+              {activeDays.length} Days / Wk
+            </Text>
+          </View>
+
+          <View className="flex-row justify-between pt-1">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => {
+              const isScheduled = activeDays.includes(d);
+              const isToday = currentDayKey.toLowerCase() === d.toLowerCase();
+              return (
+                <View key={d} className="items-center gap-1.5">
+                  <Text className="text-slate-400 text-[10px] font-bold">{d}</Text>
+                  <View
+                    className={`w-8 h-8 rounded-full items-center justify-center border ${
+                      isToday
+                        ? 'bg-[#FF5A1F] border-[#FF5A1F]'
+                        : isScheduled
+                        ? 'bg-white/[0.08] border-white/10'
+                        : 'bg-white/[0.02] border-white/[0.04]'
+                    }`}
+                  >
+                    <Ionicons
+                      name={isScheduled ? 'barbell' : 'ellipse'}
+                      size={12}
+                      color={isToday ? '#FFFFFF' : isScheduled ? '#F8FAFC' : '#475569'}
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
       </ScrollView>
 
       {/* Quick Macro Intake Modal */}
@@ -442,111 +527,90 @@ export default function CommandDeckScreen() {
         animationType="fade"
         onRequestClose={() => setShowQuickAddModal(false)}
       >
-        <View className="flex-1 bg-black/85 justify-center px-6">
-          <View className="bg-[#121215] border border-white/10 rounded-3xl p-6 gap-5 shadow-2xl">
+        <View className="flex-1 bg-black/85 items-center justify-center px-6">
+          <View className="w-full max-w-sm rounded-3xl bg-[#141416] border border-white/10 p-6 gap-4">
             <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-white text-base font-bold uppercase tracking-wider">
-                  QUICK MACRO INTAKE
-                </Text>
-                <Text className="text-[#71717A] text-xs mt-0.5">
-                  Record calories and protein in seconds
-                </Text>
-              </View>
+              <Text className="text-white text-base font-bold">
+                Quick Macro Intake
+              </Text>
               <Pressable
                 onPress={() => setShowQuickAddModal(false)}
-                className="w-8 h-8 rounded-full bg-white/[0.06] items-center justify-center active:opacity-75"
+                className="w-8 h-8 rounded-full bg-white/10 items-center justify-center"
               >
-                <Ionicons name="close" size={18} color="#A1A1AA" />
+                <Ionicons name="close" size={16} color="#FFFFFF" />
               </Pressable>
             </View>
 
-            {/* Form Inputs */}
             <View className="gap-3">
-              <View className="gap-1.5">
-                <Text className="text-[#71717A] text-[11px] font-mono uppercase">
-                  Meal Name (Optional)
-                </Text>
+              <View className="gap-1">
+                <Text className="text-[#8E8E93] text-xs font-mono uppercase">Item / Meal Name</Text>
                 <TextInput
                   value={quickMealName}
                   onChangeText={setQuickMealName}
-                  placeholder="e.g. Steak & Jasmine Rice"
-                  placeholderTextColor="#52525B"
-                  className="w-full px-4 py-3 rounded-xl bg-[#18181D] border border-white/10 text-white font-medium text-sm"
+                  placeholder="e.g. Post-Workout Shake"
+                  placeholderTextColor="#636366"
+                  className="h-10 px-3 rounded-xl bg-black/60 border border-white/10 text-white text-xs font-medium"
                 />
               </View>
 
               <View className="flex-row gap-3">
-                <View className="flex-1 gap-1.5">
-                  <Text className="text-[#71717A] text-[11px] font-mono uppercase">
-                    Calories (kcal) *
-                  </Text>
+                <View className="flex-1 gap-1">
+                  <Text className="text-[#8E8E93] text-xs font-mono uppercase">Calories (kcal)</Text>
                   <TextInput
                     value={quickCalories}
                     onChangeText={setQuickCalories}
-                    placeholder="650"
-                    placeholderTextColor="#52525B"
+                    placeholder="e.g. 350"
+                    placeholderTextColor="#636366"
                     keyboardType="numeric"
-                    maxLength={5}
-                    className="w-full px-4 py-3 rounded-xl bg-[#18181D] border border-white/10 text-white font-mono text-sm text-center"
+                    className="h-10 px-3 rounded-xl bg-black/60 border border-white/10 text-white font-mono text-xs"
                   />
                 </View>
 
-                <View className="flex-1 gap-1.5">
-                  <Text className="text-[#71717A] text-[11px] font-mono uppercase">
-                    Protein (g) *
-                  </Text>
+                <View className="flex-1 gap-1">
+                  <Text className="text-[#8E8E93] text-xs font-mono uppercase">Protein (g)</Text>
                   <TextInput
                     value={quickProtein}
                     onChangeText={setQuickProtein}
-                    placeholder="45"
-                    placeholderTextColor="#52525B"
+                    placeholder="e.g. 30"
+                    placeholderTextColor="#636366"
                     keyboardType="numeric"
-                    maxLength={3}
-                    className="w-full px-4 py-3 rounded-xl bg-[#18181D] border border-white/10 text-white font-mono text-sm text-center"
+                    className="h-10 px-3 rounded-xl bg-black/60 border border-white/10 text-white font-mono text-xs"
                   />
                 </View>
               </View>
             </View>
 
-            {/* Commit Action Button */}
-            <Pressable
-              onPress={handleCommitQuickMeal}
-              className="w-full py-3.5 rounded-xl bg-[#DC2626] items-center justify-center active:opacity-85 mt-1"
-            >
-              <Text className="text-white text-xs font-bold uppercase tracking-wider">
-                Add to Daily Intake
-              </Text>
-            </Pressable>
+            <View className="flex-row gap-3 mt-1">
+              <Pressable
+                onPress={() => setShowQuickAddModal(false)}
+                className="flex-1 py-3 rounded-xl bg-white/[0.06] border border-white/10 items-center justify-center"
+              >
+                <Text className="text-[#8E8E93] text-xs font-bold uppercase">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleCommitQuickMeal}
+                className="flex-1 py-3 rounded-xl bg-white items-center justify-center"
+              >
+                <Text className="text-black text-xs font-bold uppercase">Save Meal</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* Aegis Protocol Configuration Modal */}
+      {/* Config Modal */}
       <AegisConfigModal
         visible={showConfigModal}
         onClose={() => setShowConfigModal(false)}
         profile={profile}
-        onProfileUpdated={async (updatedProfile) => {
-          setProfile(updatedProfile);
-          try {
-            const freshLog = await getDailyLog();
-            setDietLog(freshLog);
-          } catch {}
-        }}
-        onMealsCleared={async () => {
-          try {
-            const freshLog = await getDailyLog();
-            setDietLog(freshLog);
-          } catch {}
-        }}
+        onProfileUpdated={(updated) => setProfile(updated)}
+        onMealsCleared={() => {}}
       />
 
-      {/* Historical Workout Logbook & PR Vault Modal */}
+      {/* Vault Modal */}
       <AegisLogbookModal
         visible={showLogbookModal}
         onClose={() => setShowLogbookModal(false)}
-        unitSystem={profile?.unitSystem}
       />
     </SafeAreaView>
   );

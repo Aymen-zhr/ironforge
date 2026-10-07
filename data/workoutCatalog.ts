@@ -30,7 +30,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
   {
     id: 'push-day',
     splitName: 'Push Day',
-    subtitle: 'Anterior Chain Hypertrophy // Chest, Delts & Triceps Overload',
+    subtitle: 'Anterior Chain Hypertrophy • Chest, Delts & Triceps Overload',
     category: 'PPL',
     durationMinutes: 60,
     exercises: [
@@ -104,7 +104,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
   {
     id: 'pull-day',
     splitName: 'Pull Day',
-    subtitle: 'Posterior Chain Recruitment // Lat Width & Upper Back Density',
+    subtitle: 'Posterior Chain Recruitment • Lat Width & Upper Back Density',
     category: 'PPL',
     durationMinutes: 60,
     exercises: [
@@ -252,7 +252,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
   {
     id: 'upper-body',
     splitName: 'Upper Body',
-    subtitle: 'Horizontal & Vertical Push/Pull Balance // Antagonist Overload',
+    subtitle: 'Horizontal & Vertical Push/Pull Balance • Antagonist Overload',
     category: 'Upper/Lower',
     durationMinutes: 55,
     exercises: [
@@ -400,7 +400,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
   {
     id: 'chest-back-arnold',
     splitName: 'Chest & Back',
-    subtitle: 'Golden Era Antagonist Super-Pump // Pectoral & Lat Expansion',
+    subtitle: 'Golden Era Antagonist Super-Pump • Pectoral & Lat Expansion',
     category: 'Arnold',
     durationMinutes: 65,
     exercises: [
@@ -548,7 +548,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
   {
     id: 'chest-day',
     splitName: 'Chest Day',
-    subtitle: 'Pectoral Hypertrophy // Sternal & Clavicular Overload',
+    subtitle: 'Pectoral Hypertrophy • Sternal & Clavicular Overload',
     category: 'Bro Split',
     durationMinutes: 55,
     exercises: [
@@ -609,7 +609,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
   {
     id: 'back-day',
     splitName: 'Back Day',
-    subtitle: 'Lat Width & Spinal Density // Posterior Pull',
+    subtitle: 'Lat Width & Spinal Density • Posterior Pull',
     category: 'Bro Split',
     durationMinutes: 60,
     exercises: [
@@ -636,7 +636,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
         reps: '10-12 reps',
         rpe: '8.5',
         restSeconds: 90,
-        videoUrl: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/back/cable-lat-pulldown.gif',
+        videoUrl: 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg',
         executionNotes: 'Slight torso lean, pull elbows vertically into waistline, pause 1s at clavicle.',
       },
       {
@@ -662,7 +662,7 @@ export const WORKOUT_PROGRAMS: TrainingProgram[] = [
         reps: '12 reps',
         rpe: '8.5',
         restSeconds: 75,
-        videoUrl: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/back/cable-seated-row.gif',
+        videoUrl: 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/0.jpg',
         executionNotes: 'Sit upright with neutral spine. Pull attachment to abdomen, driving elbows back.',
       },
     ],

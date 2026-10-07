@@ -9,3 +9,8 @@ export { default as HeroFeatureCard } from './HeroFeatureCard';
 export { default as AmbientGlow } from './AmbientGlow';
 export { default as SparklineChart } from './SparklineChart';
 export { default as WeatherCard } from './WeatherCard';
+export { default as CalendarTracker } from './CalendarTracker';
+export { default as WeightGoalPlanner } from './WeightGoalPlanner';
+export { default as PhotoCard } from './PhotoCard';
+export { default as CircularDial } from './CircularDial';
+export { default as ConcentricMacroRings } from './ConcentricMacroRings';

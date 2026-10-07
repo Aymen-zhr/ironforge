@@ -1,2 +1,3 @@
-import RootLayout from './app/_layout';
-export default RootLayout;
+import { App } from 'expo-router/build/qualified-entry';
+export default App;
+
