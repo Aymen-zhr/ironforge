@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Expo & Web builds
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+drizzle/
+
+# Native & EAS Builds
+.kotlin/
+.eas/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.apk
+*.aab
+*.ipa
+local.properties
+.gradle/
+build/
+
+# Metro
+.metro-health-check*
+
+# Debug & Package logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# Environment variables
+.env
+.env*.local
+.env.*
+!.env.example
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# OS Files
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.pem
+
+# TypeScript
+*.tsbuildinfo
+
+# Prebuild generated native folders
+/ios
+/android
+
+# Scratch & local caches
+scratch/
+graphify-out/
+graphify.json
+.eslintcache
+.agent/
+.agents/
+.antigravity/
+.codex/
+.diagram-design
+skills-lock.json
+.obsidian/
+docs/
+*.canvas
